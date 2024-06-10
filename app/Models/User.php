@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+//use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class User extends Authenticatable
 {
@@ -24,12 +25,28 @@ class User extends Authenticatable
     ];
 
     /**
+     * Get the contextUsers for the user.
+     */
+    public function contextUsers(): HasMany
+    {
+        return $this->hasMany(ContextUser::class);
+    }
+    
+    /**
      * Get the messages for the user.
      */
-    public function messages(): HasMany
+    /*public function messages(): HasMany
     {
         return $this->hasMany(Message::class);
-    }
+    }*/
+
+    /**
+     * The contexts that belong to the user.
+     */
+    /*public function contexts(): BelongsToMany
+    {
+        return $this->belongsToMany(Context::class)->withPivot('is_instructor');
+    }*/
 
     /**
      * The attributes that should be hidden for serialization.

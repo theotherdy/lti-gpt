@@ -2,14 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\LlmService;
-
-
-
 use Illuminate\Http\Request;
-use LlmService as GlobalLlmService;
 
-class LlmController extends Controller
+class ContextController extends Controller
 {
     /**
      * Display a listing of the resource.
@@ -49,9 +44,5 @@ class LlmController extends Controller
     public function destroy(string $id)
     {
         //
-    }
-
-    public function chat(Request $request, LlmService $llmService) {
-        $response = $llmService->chat($request);
     }
 }

@@ -23,16 +23,16 @@ class Message extends Model
     /**
      * Get the user that owns the message.
      */
-    public function user(): BelongsTo
+    /*public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
-    }
+    }*/
 
     /**
-     * Get the Llm that the conversation is with.
+     * Get the context_user that the conversation is with.
      */
-    public function llm(): BelongsTo
+    public function contextUser(): BelongsTo
     {
-        return $this->belongsTo(Llm::class);
+        return $this->belongsTo(ContextUser::class);
     }
 }

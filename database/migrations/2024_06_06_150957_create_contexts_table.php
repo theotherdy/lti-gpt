@@ -11,12 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('messages', function (Blueprint $table) {
+        Schema::create('contexts', function (Blueprint $table) {
             $table->id();
-            $table->integer('token_count');
-            $table->boolean('from_user'); //if not from user then is from LLM
-            $table->foreignId('user_id')->constrained();
+            $table->string('lms_context_id');
+            $table->string('lms_context_title');
             $table->foreignId('llm_id')->constrained();
+            $table->foreignId('audience_id')->constrained();
             $table->timestamps();
         });
     }
@@ -26,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('messages');
+        Schema::dropIfExists('contexts');
     }
 };

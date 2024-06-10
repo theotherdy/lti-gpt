@@ -27,4 +27,12 @@ class Llm extends Model
     {
         return $this->hasMany(Message::class);
     }
+
+    /**
+     * Get the contexts for the Llm.
+     */
+    public function contexts(): HasMany
+    {
+        return $this->hasMany(Context::class);
+    }
 }

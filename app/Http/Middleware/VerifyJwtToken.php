@@ -8,11 +8,27 @@ use Firebase\JWT\JWT;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
+use App\Services\UserService;
+use App\Services\AudienceService;
+use App\Services\ContextService;
+
 class VerifyJWTToken
 {
-    protected $issuer = 'https://lti.canvas.ox.ac.uk';
-    protected $audience = '122010000000000156';
+    //protected $issuer = 'https://lti.canvas.ox.ac.uk';
+    //protected $audience = '122010000000000156';
     protected $jwksUrl = 'https://lti.canvas.ox.ac.uk/.well-known/jwks.json';
+
+    protected $audienceService;
+    protected $userService;
+    protected $contextService;
+
+    public function __construct(AudienceService $audienceService, UserService $userService, ContextService $contextService) 
+    {
+        //inject required services vioa constructor
+        $this->audienceService = $audienceService;
+        $this->userService = $userService;
+        $this->contextService = $contextService;
+    }
 
     public function handle(Request $request, Closure $next)
     {
@@ -41,13 +57,20 @@ class VerifyJWTToken
             $decodedToken = JWT::decode($token, $keySet);
 
             // Verify the issuer, audience, and expiration time
-            if ($decodedToken->iss !== $this->issuer) {
+            //look for issuer in our DB
+            $configured_aud = $this->audienceService->audienceByIssuer($decodedToken->iss);
+            if(!$configured_aud) {
+                return response()->json(['error' => 'Invalid issuer or no audience configured'], Response::HTTP_UNAUTHORIZED);
+            } else if ($decodedToken->aud !== $configured_aud) {
+                return response()->json(['error' => 'Invalid audience'], Response::HTTP_UNAUTHORIZED);
+            }
+            /*if ($decodedToken->iss !== $this->issuer) {
                 return response()->json(['error' => 'Invalid issuer'], Response::HTTP_UNAUTHORIZED);
             }
 
             if ($decodedToken->aud !== $this->audience) {
                 return response()->json(['error' => 'Invalid audience'], Response::HTTP_UNAUTHORIZED);
-            }
+            }*/
 
             $now = time();
             if ($decodedToken->exp < $now || $decodedToken->iat > $now) {
@@ -55,6 +78,53 @@ class VerifyJWTToken
             }
 
             // All checks pass, continue with the request
+            ///now need to extract context and user data so can populate config variables (see jwt.php)
+            
+            //required user claim
+            $jwt_sub = $decodedToken->sub;  //subject = unique user id for a given iss(uer)
+            //optional user claim
+            $jwt_given_name = '';
+            $jwt_family_name = '';
+            $jwt_email = '';
+
+            $jwt_is_instructor = false;
+            if(isset($decodedToken['https://purl.imsglobal.org/spec/lti/claim/roles'])){
+                if(in_array('http://purl.imsglobal.org/vocab/lis/v2/membership#Instructor', $decodedToken['https://purl.imsglobal.org/spec/lti/claim/roles'])){
+                    $jwt_is_instructor = true;    
+                }
+            }
+
+            if(isset($decodedToken->given_name)){
+                $jwt_given_name = $decodedToken->given_name;
+            }
+            if(isset($decodedToken->family_name)){
+                $jwt_family_name = $decodedToken->family_name;
+            }
+            if(isset($decodedToken->email)){
+                $jwt_email = $decodedToken->email;
+            }
+            //optional context claim
+            $jwt_context_id = null;
+            $jwt_context_title = null;
+            if(isset($decodedToken['https://purl.imsglobal.org/spec/lti/claim/context'])){
+                $jwt_context_id = $decodedToken['https://purl.imsglobal.org/spec/lti/claim/context']->id;
+                if(isset($decodedToken['https://purl.imsglobal.org/spec/lti/claim/context']->title)){
+                    $jwt_context_title = $decodedToken['https://purl.imsglobal.org/spec/lti/claim/context']->title;
+                }
+            }
+
+            //now update or create user
+            $user = $this->userService->createOrUpdateUser($jwt_sub, $jwt_given_name, $jwt_family_name, $jwt_email);
+
+            //TODO maybe just need to chcek it exists rather than updating each time?
+            //then update or create context and contextUser
+            $context = $this->contextService->createOrUpdateContext($jwt_context_id, $jwt_context_title, config('jwt.audience_id'));
+
+            //NOW CHECK WHETHER WE HAVE AN LLM DEFINED ON OUR CONTEXT:
+            //-if so, allow chat request
+            //-if not, tell front-end to show config screen
+
+
             return $next($request);
         } catch (\Exception $e) {
             return response()->json(['error' => 'Token validation failed: ' . $e->getMessage()], Response::HTTP_UNAUTHORIZED);
