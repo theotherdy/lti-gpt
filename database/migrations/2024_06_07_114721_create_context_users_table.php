@@ -11,8 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('context_user', function (Blueprint $table) {
+        Schema::create('context_users', function (Blueprint $table) {
             $table->id();
+            $table->boolean('is_instructor')->nullable();
+            $table->foreignId('user_id')->constrained();
+            $table->foreignId('context_id')->constrained();
             $table->timestamps();
         });
     }
@@ -22,6 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('context_user');
+        Schema::dropIfExists('context_users');
     }
 };

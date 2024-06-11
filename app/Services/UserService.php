@@ -6,6 +6,7 @@ namespace App\Services;
 //use GuzzleHttp\Client;
 
 use App\Models\User;
+use App\Models\ContextUser;
 
 class UserService {
     public function createOrUpdateUser(String $jwt_sub, String $jwt_given_name, String $jwt_family_name, String $jwt_email)
@@ -20,4 +21,15 @@ class UserService {
 
         return $user;  
     }
+
+    public function setRoleInContext(Bool $is_instructor)
+    {
+        $context_user = ContextUser::updateOrCreate(
+            ['user_id' => config('jwt.user_id'), 'context_id' => config('jwt.context_id')], //find on this
+            ['is_instructor' => $is_instructor] //set or update these
+        );
+
+        return $context_user;  
+    }
+
 }

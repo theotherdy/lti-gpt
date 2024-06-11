@@ -14,12 +14,14 @@ class User extends Authenticatable
     use HasFactory, Notifiable;
 
     /**
-     * The attributes that are mass assignable.
+     * The attributes that are mass assignable, including by updateOrCreate
      *
      * @var array<int, string>
      */
     protected $fillable = [
-        'name',
+        'sub',
+        'first_name',
+        'last_name',
         'email',
         //'password',
     ];

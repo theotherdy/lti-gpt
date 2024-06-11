@@ -12,6 +12,19 @@ class ContextUser extends Model
     use HasFactory;
 
     /**
+     * The attributes that are mass assignable, including by updateOrCreate
+     *
+     * @var array<int, string>
+     */
+    protected $fillable = [
+        'is_instructor',
+        'user_id',
+        'context_id',
+    ];
+
+    
+
+    /**
      * Get the user that owns the contextUser.
      */
     public function user(): BelongsTo

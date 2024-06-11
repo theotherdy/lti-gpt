@@ -2,8 +2,7 @@
 
 namespace App\Services;
 
-//use Illuminate\Http\Request;
-//use GuzzleHttp\Client;
+use Illuminate\Support\Facades\Log;
 
 use App\Models\Context;
 use App\Models\Audience;
@@ -16,10 +15,14 @@ class ContextService {
             ['lms_context_title' => $jwt_context_title] //set or update these
         );
 
+        Log::debug($context->audience_id);
+        
         //associate with audience if necessary
         if(empty($context->audience_id)){
             $audience = Audience::find($audience_id);
+            Log::debug($audience);
             $context->audience()->associate($audience);
+            $context->save();
         }
 
         //set config to user id

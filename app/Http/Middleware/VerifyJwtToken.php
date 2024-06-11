@@ -8,6 +8,8 @@ use Firebase\JWT\JWT;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
+use Illuminate\Support\Facades\Log;
+
 use App\Services\UserService;
 use App\Services\AudienceService;
 use App\Services\ContextService;
@@ -88,8 +90,9 @@ class VerifyJWTToken
             $jwt_email = '';
 
             $jwt_is_instructor = false;
-            if(isset($decodedToken['https://purl.imsglobal.org/spec/lti/claim/roles'])){
-                if(in_array('http://purl.imsglobal.org/vocab/lis/v2/membership#Instructor', $decodedToken['https://purl.imsglobal.org/spec/lti/claim/roles'])){
+            $decodedTokenArray = (array) $decodedToken; //casting to array so can use isset and in-array
+            if(isset($decodedTokenArray['https://purl.imsglobal.org/spec/lti/claim/roles'])){
+                if(in_array('http://purl.imsglobal.org/vocab/lis/v2/membership#Instructor', $decodedTokenArray['https://purl.imsglobal.org/spec/lti/claim/roles'])){
                     $jwt_is_instructor = true;    
                 }
             }
@@ -106,19 +109,22 @@ class VerifyJWTToken
             //optional context claim
             $jwt_context_id = null;
             $jwt_context_title = null;
-            if(isset($decodedToken['https://purl.imsglobal.org/spec/lti/claim/context'])){
-                $jwt_context_id = $decodedToken['https://purl.imsglobal.org/spec/lti/claim/context']->id;
-                if(isset($decodedToken['https://purl.imsglobal.org/spec/lti/claim/context']->title)){
-                    $jwt_context_title = $decodedToken['https://purl.imsglobal.org/spec/lti/claim/context']->title;
+            if(isset($decodedTokenArray['https://purl.imsglobal.org/spec/lti/claim/context'])){
+                $jwt_context_id = $decodedTokenArray['https://purl.imsglobal.org/spec/lti/claim/context']->id;
+                if(isset($decodedTokenArray['https://purl.imsglobal.org/spec/lti/claim/context']->title)){
+                    $jwt_context_title = $decodedTokenArray['https://purl.imsglobal.org/spec/lti/claim/context']->title;
                 }
             }
 
             //now update or create user
+            //Log::debug($jwt_sub);
             $user = $this->userService->createOrUpdateUser($jwt_sub, $jwt_given_name, $jwt_family_name, $jwt_email);
 
             //TODO maybe just need to chcek it exists rather than updating each time?
             //then update or create context and contextUser
-            $context = $this->contextService->createOrUpdateContext($jwt_context_id, $jwt_context_title, config('jwt.audience_id'));
+            $context = $this->contextService->createOrUpdateContext($jwt_context_id, $jwt_context_title, config('jwt.aud_id'));
+
+            $context_user = $this->userService->setRoleInContext($jwt_is_instructor);
 
             //NOW CHECK WHETHER WE HAVE AN LLM DEFINED ON OUR CONTEXT:
             //-if so, allow chat request

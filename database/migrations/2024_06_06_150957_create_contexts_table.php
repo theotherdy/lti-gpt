@@ -14,9 +14,9 @@ return new class extends Migration
         Schema::create('contexts', function (Blueprint $table) {
             $table->id();
             $table->string('lms_context_id');
-            $table->string('lms_context_title');
-            $table->foreignId('llm_id')->constrained();
-            $table->foreignId('audience_id')->constrained();
+            $table->string('lms_context_title')->nullable();
+            $table->foreignId('llm_id')->nullable()->constrained();
+            $table->foreignId('audience_id')->nullable()->constrained();
             $table->timestamps();
         });
     }
