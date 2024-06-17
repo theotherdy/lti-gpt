@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Support\Facades\Log;
+
 use App\Services\LlmService;
 
 
@@ -11,6 +13,14 @@ use LlmService as GlobalLlmService;
 
 class LlmController extends Controller
 {
+    
+    protected $llmService;
+    public function __construct(LlmService $llmService) 
+    {
+        //inject required services vioa constructor
+        $this->llmService = $llmService;    
+    }
+    
     /**
      * Display a listing of the resource.
      */
@@ -30,10 +40,50 @@ class LlmController extends Controller
     /**
      * Display the specified resource.
      */
+    public function showCurrent()
+    {
+        //Log::debug('I am here');
+        
+        $context = $this->llmService->getCurrentLlm();
+
+        //Log::debug('I am now here');
+
+        //Log::debug(print_r($llm));
+
+        if($context->llm()->exists()){
+            //Log::debug('I have llm');
+            //Log::debug(print_r($llm));
+            return response()->json([
+                'status' => 'success',
+                'data' => $context,
+                'error' => [
+                    'type' => ''
+                ]
+            ]); 
+        } else {
+            //Log::debug('no llm');
+            /*Log::debug('I dont have llm');*/
+            return response()->json([
+                'status' => 'failure',
+                'data' => $context,
+                'error' => [
+                    'type' => '',
+                    'message' => 'No Llm set for this context',
+                ]
+            ]); 
+        }
+        
+    }
+
+    /**
+     * Display the specified resource.
+     */
     public function show(string $id)
     {
         //
     }
+
+
 
     /**
      * Update the specified resource in storage.

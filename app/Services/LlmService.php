@@ -5,9 +5,23 @@ namespace App\Services;
 use Illuminate\Http\Request;
 use GuzzleHttp\Client;
 
+use Illuminate\Support\Facades\Log;
+
+use App\Models\Llm;
+use App\Models\Context;
+
 class LlmService {
     
-    
+    public function getCurrentLlm()
+    {
+        $context = Context::find(config('jwt.context_id'));
+        
+        /*$llm = null;
+        if($context && $context->llm()->exists()) {
+            $llm = $context->llm();
+        }*/
+        return $context;
+    }
     
     public function chat(Request $request)
     {

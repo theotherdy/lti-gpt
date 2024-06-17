@@ -15,7 +15,7 @@ class ContextService {
             ['lms_context_title' => $jwt_context_title] //set or update these
         );
 
-        Log::debug($context->audience_id);
+        //Log::debug($context->audience_id);
         
         //associate with audience if necessary
         if(empty($context->audience_id)){
