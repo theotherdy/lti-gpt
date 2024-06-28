@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
 import { Alert } from '@instructure/ui-alerts';
 import { Button } from '@instructure/ui-buttons';
@@ -13,42 +13,54 @@ function Chat() {
     const [errors, setErrors] = useState<string[]>([]);
     const [isLlmSet, setIsLlmSet] = useState(false);
 
-    const token = ""; // Assuming this will be provided or managed elsewhere
+    const token = "PasteKeyHere"; // Assuming this will be provided or managed elsewhere
 
     // Type guard to check if the error is of type Error
     const isError = (err: unknown): err is Error => {
         return err instanceof Error;
     };
 
-    const handleApiKeySubmit = async () => {
-        try {
-            const res = await fetch('http://localhost/api/llm/store', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-                body: JSON.stringify({ apiKey: apiKey }),
-            });
-
+    const handleApiKeyPost = async () => {
+        const res = await fetch('http://localhost/api/llm/store', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({ apiKey: apiKey }),
+        });
+    
+        if (!res.ok) {
+            // Handle non-successful response (status not in 200-299 range)
             if (res.status === 401) {
                 // Handle 401 Unauthorized error
-                setErrors(prevErrors => [...prevErrors, 'Unauthorized. Please log in.']);
                 throw new Error('Unauthorized');
-            }
-
-            const data = await res.json();
-
-            if (data.success) {
-                setContextTitle(data.contextTitle);
             } else {
-                setErrors(prevErrors => [...prevErrors, 'Error storing API key']);
+                // Handle other HTTP errors
+                throw new Error('HTTP error ' + res.status);
             }
-        } catch (error: unknown) {
+        }
+    
+        const data = await res.json();
+    
+        if (data.status !== 'success') {
+            // Handle API-level error
+            throw new Error('Error storing API key');
+        }
+    
+        // Assuming data.contextTitle is returned from API
+        return data.contextTitle;
+    };
+
+    const handleApiSubmit = async () => {
+        try {
+            const contextTitle = await handleApiKeyPost();
+            setContextTitle(contextTitle);
+        } catch (error) {
             if (isError(error)) {
                 setErrors(prevErrors => [...prevErrors, error.message]);
             } else {
-                setErrors(prevErrors => [...prevErrors, 'An unknown error occurred while storing API key.']);
+                setErrors(prevErrors => [...prevErrors, 'An unknown error occurred.']);
             }
         }
     };
@@ -73,6 +85,7 @@ function Chat() {
             const decoder = new TextDecoder();
             let partialResponse = '';
 
+            // eslint-disable-next-line
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
@@ -92,7 +105,7 @@ function Chat() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const response = await fetch('http://localhost/api/show-current', {
+                const response = await fetch('http://localhost/api/llm/show-current', {
                     method: 'GET',
                     headers: {
                         'Content-Type': 'application/json',
@@ -147,7 +160,7 @@ function Chat() {
                     <Alert variant="warning" margin="small">
                         No ChatGPT API key set for: {contextTitle}. Please enter a key below:
                     </Alert>
-                    <form onSubmit={(e) => { e.preventDefault(); handleApiKeySubmit(); }}>
+                    <form onSubmit={(e) => { e.preventDefault(); handleApiSubmit(); }}>
                         <TextInput
                             value={apiKey}
                             display="inline-block"

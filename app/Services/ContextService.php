@@ -25,7 +25,7 @@ class ContextService {
             $context->save();
         }
 
-        //set config to user id
+        //set config to context id
         config(['jwt.context_id' => $context->id]);
 
         return $context;  

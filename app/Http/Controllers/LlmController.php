@@ -34,7 +34,26 @@ class LlmController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        // Validate the request payload
+        $validatedData = $request->validate([
+            'apiKey' => 'required|string',
+        ]);
+
+        // Call the service method to store the API key
+        $result = $this->llmService->storeApiKey($validatedData['apiKey']);
+
+        if ($result['status'] === 'success') {
+            return response()->json([
+                'status' => 'success',
+                'message' => 'API key stored and context updated successfully.',
+                'data' => $result['data']
+            ], 200);
+        } else {
+            return response()->json([
+                'status' => 'failure',
+                'message' => $result['message']
+            ], 500);
+        }
     }
 
     /**

@@ -9,6 +9,8 @@ use App\Http\Controllers\LlmController;
 use App\Http\Middleware\VerifyJwtToken; //custom middleware based on Lcobucci\JWT
 
 
-Route::get('/messages', [MessageController::class, 'index'])->middleware(VerifyJwtToken::class);
-
-Route::get('/show-current', [LlmController::class, 'showCurrent'])->middleware(VerifyJwtToken::class);
+Route::middleware([VerifyJwtToken::class])->group(function () {
+    Route::get('llm/show-current', [LlmController::class, 'showCurrent']);
+    Route::post('llm/store', [LlmController::class, 'store']);
+    Route::get('/messages', [MessageController::class, 'index']);
+});

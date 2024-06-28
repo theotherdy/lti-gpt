@@ -22,6 +22,72 @@ class LlmService {
         }*/
         return $context;
     }
+
+    /**
+     * Store the provided API key for 'ChatGPT' in the database and update the context.
+     */
+    public function storeApiKey(string $apiKey)
+    {
+        // Retrieve the current context ID from the configuration
+        $contextId = config('jwt.context_id');
+
+        if (!$contextId) {
+            Log::error('Context ID not found in configuration.');
+            return [
+                'status' => 'failure',
+                'message' => 'Context ID not found in configuration.'
+            ];
+        }
+
+        // Find the Llm record where name is 'ChatGPT'
+        $llm = Llm::where('name', 'ChatGPT')->first();
+
+        if ($llm) {
+            // Update the API_token field
+            $llm->API_token = $apiKey;
+            if ($llm->save()) {
+                // Update the context with the new llm_id
+                $context = Context::find($contextId);
+                if ($context) {
+                    $context->llm_id = $llm->id;
+                    if ($context->save()) {
+                        return [
+                            'status' => 'success',
+                            'data' => [
+                                'llm_id' => $llm->id,
+                                'context_id' => $context->id
+                            ]
+                        ];
+                    } else {
+                        Log::error('Failed to update context with new LLM ID.');
+                        return [
+                            'status' => 'failure',
+                            'message' => 'Failed to update context with new LLM ID.'
+                        ];
+                    }
+                } else {
+                    Log::error('Context not found for given context ID.');
+                    return [
+                        'status' => 'failure',
+                        'message' => 'Context not found for given context ID.'
+                    ];
+                }
+            } else {
+                Log::error('Failed to update API token for LLM.');
+                return [
+                    'status' => 'failure',
+                    'message' => 'Failed to update API token for LLM.'
+                ];
+            }
+        } else {
+            Log::error('Llm with name ChatGPT not found.');
+            return [
+                'status' => 'failure',
+                'message' => 'Llm with name ChatGPT not found.'
+            ];
+        }
+    }
+
     
     public function chat(Request $request)
     {
