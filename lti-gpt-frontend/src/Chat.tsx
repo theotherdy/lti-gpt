@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Alert } from '@instructure/ui-alerts';
 import { Button } from '@instructure/ui-buttons';
 import { ScreenReaderContent } from '@instructure/ui-a11y-content';
+import { TextArea } from '@instructure/ui-text-area'
 import { TextInput } from '@instructure/ui-text-input';
 import { CustomEventSource } from './CustomEventSource';
 
@@ -14,6 +15,7 @@ function Chat() {
     const [contextTitle, setContextTitle] = useState<string>('');
     const [errors, setErrors] = useState<string[]>([]);
     const [isLlmSet, setIsLlmSet] = useState(false);
+    const responseContainerRef = useRef<HTMLDivElement | null>(null); //A reference to the div showing the responses. It allows scrolling to the bottom when new responses come in.
     const eventSourceRef = useRef<CustomEventSource | null>(null);
 
     const token = ""; // Assuming this will be provided or managed elsewhere
@@ -193,9 +195,15 @@ function Chat() {
 
     }, []); // Adding `token` to the dependency array
 
+    // Scroll to bottom on new response
+    useEffect(() => {
+        if (responseContainerRef.current) {
+            responseContainerRef.current.scrollTop = responseContainerRef.current.scrollHeight;
+        }
+    }, [responses]);
+
     return (
-        <div>
-            {/* Errors displayed at the top */}
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
             {errors.length > 0 && (
                 <div>
                     {errors.map((error, index) => (
@@ -206,7 +214,6 @@ function Chat() {
                 </div>
             )}
 
-            {/* Conditional rendering based on contextTitle */}
             {!isLlmSet ? (
                 <>
                     <Alert variant="warning" margin="small">
@@ -226,26 +233,28 @@ function Chat() {
                     </form>
                 </>
             ) : (
-                <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1rem' }}>
-                        <TextInput
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', margin: '0 auto', padding: '1rem', boxSizing: 'border-box', width: '100%' }}>
+                    <div ref={responseContainerRef} style={{ flex: 1, overflowY: 'auto', background: '#f6f6f6', padding: '1rem', borderRadius: '5px', textAlign: 'left', whiteSpace: 'pre-wrap' }}>
+                        {responses}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', marginTop: '1rem', borderTop: '1px solid #ddd', paddingTop: '1rem' }}>
+                        <TextArea
                             value={message}
                             onChange={(e) => setMessage(e.target.value)}
                             placeholder="Type your message here..."
-                            renderLabel={<ScreenReaderContent>Message</ScreenReaderContent>}
-                            style={{ flexGrow: 1, marginRight: '0.5rem' }}
+                            label={<ScreenReaderContent>Message</ScreenReaderContent>}
+                            maxHeight={'33vh'}
+                            //style={{ flexGrow: 1, marginRight: '0.5rem', maxHeight: '33vh', overflowY: 'auto' }}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault();
+                                    sendMessage();
+                                }
+                            }}
                         />
                         <Button margin="xx-small" onClick={sendMessage}>
                             Send
                         </Button>
-                    </div>
-                    <div style={{ whiteSpace: 'pre-wrap', background: '#f6f6f6', padding: '1rem', borderRadius: '5px', textAlign: 'left'}}>
-                        {
-                        responses
-                        /*responses.map((resp, index) => (
-                            <div key={index}>{resp}</div>
-                        ))*/
-                        }
                     </div>
                 </div>
             )}
