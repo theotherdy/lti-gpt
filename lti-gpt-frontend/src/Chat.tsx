@@ -1,19 +1,22 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 import { Alert } from '@instructure/ui-alerts';
 import { Button } from '@instructure/ui-buttons';
 import { ScreenReaderContent } from '@instructure/ui-a11y-content';
 import { TextInput } from '@instructure/ui-text-input';
+import { CustomEventSource } from './CustomEventSource';
 
 function Chat() {
     const [message, setMessage] = useState<string>('');
-    const [response, setResponse] = useState<string>('');
+    //const [responses, setResponses] = useState<string[]>([]);
+    const [responses, setResponses] = useState<string>('');
     const [apiKey, setApiKey] = useState<string>('');
     const [contextTitle, setContextTitle] = useState<string>('');
     const [errors, setErrors] = useState<string[]>([]);
     const [isLlmSet, setIsLlmSet] = useState(false);
+    const eventSourceRef = useRef<CustomEventSource | null>(null);
 
-    const token = "PasteKeyHere"; // Assuming this will be provided or managed elsewhere
+    const token = ""; // Assuming this will be provided or managed elsewhere
 
     // Type guard to check if the error is of type Error
     const isError = (err: unknown): err is Error => {
@@ -48,14 +51,16 @@ function Chat() {
             throw new Error('Error storing API key');
         }
     
-        // Assuming data.contextTitle is returned from API
-        return data.contextTitle;
+        return data.llmId
     };
 
     const handleApiSubmit = async () => {
         try {
-            const contextTitle = await handleApiKeyPost();
-            setContextTitle(contextTitle);
+            const llmId = await handleApiKeyPost();
+            if(llmId){
+                setIsLlmSet(true);
+            }
+            
         } catch (error) {
             if (isError(error)) {
                 setErrors(prevErrors => [...prevErrors, error.message]);
@@ -65,41 +70,81 @@ function Chat() {
         }
     };
 
-    const sendMessage = async () => {
-        setResponse('');
-        try {
-            const res = await fetch('http://localhost:8000/api/chat', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-                body: JSON.stringify({ message }),
-            });
-
-            if (!res.body) {
-                throw new Error('Response body is null');
+    /*const handleStreamData = (rawData: string) => {
+        console.log('rawData: ');
+        console.log(rawData);
+        const lines = rawData.split("\n\n");
+        console.log('lines: ');
+        console.log(lines);
+        const newParsedResponses: string[] = [];
+    
+        lines.forEach((line) => {
+            if (line.trim() === "data: [DONE]") return;
+    
+            if (line.startsWith("data: ")) {
+                const jsonString = line.substring(6); // Remove "data: " prefix
+                try {
+                    const json = JSON.parse(jsonString);
+                    const content = json?.choices[0]?.delta?.content;
+                    if (content) {
+                        newParsedResponses.push(content);
+                    }
+                } catch (error) {
+                    console.error("Failed to parse JSON:", error, "Raw data:", line);
+                }
             }
-
-            const reader = res.body.getReader();
-            const decoder = new TextDecoder();
-            let partialResponse = '';
-
-            // eslint-disable-next-line
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                partialResponse += decoder.decode(value, { stream: true });
-                setResponse((prev) => prev + partialResponse);
-            }
-        } catch (error: unknown) {
-            console.error('Error sending message:', error);
-            if (isError(error)) {
-                setErrors((prevErrors) => [...prevErrors, error.message]);
-            } else {
-                setErrors((prevErrors) => [...prevErrors, 'An unknown error occurred while sending message.']);
-            }
+        });
+    
+        setResponses((prev) => [...prev, ...newParsedResponses]);
+    };*/
+    
+    
+    const sendMessage = () => {
+        if (eventSourceRef.current) {
+            eventSourceRef.current.close();
         }
+        setResponses('');
+        eventSourceRef.current = new CustomEventSource(`http://localhost/api/llm/chat?message=${encodeURIComponent(message)}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+            },
+        });
+
+        eventSourceRef.current.addEventListener('message', (event: MessageEvent) => {
+            try {
+                // Check if the message is "[DONE]"
+                if (event.data.trim() === "[DONE]") {
+                    //console.log('Stream finished.');
+                    return;
+                }
+                
+                const parsedData = JSON.parse(event.data.trim());
+                //console.log(parsedData);
+        
+                // Continue with your existing logic
+                if (parsedData.choices && parsedData.choices[0] && parsedData.choices[0].delta) {
+                    if (parsedData.choices[0].delta.content) {
+                        setResponses(prevResponses => prevResponses + parsedData.choices[0].delta.content);
+                        //setResponses(prevResponses => [...prevResponses, parsedData.choices[0].delta.content]);
+                    } else {
+                        //console.log('Delta content is empty or undefined.');
+                    }
+                } else {
+                    console.log('Unexpected data format received.');
+                }
+            } catch (error) {
+                console.error('Error parsing event data:', error);
+            }
+        });
+
+        eventSourceRef.current.addEventListener('error', (error: MessageEvent) => {
+            console.error('Error sending message:', error);
+            setErrors((prevErrors) => [...prevErrors, 'An error occurred while sending message.']);
+            if (eventSourceRef.current) {
+                eventSourceRef.current.close();
+            }
+        });
     };
 
     useEffect(() => {
@@ -139,7 +184,14 @@ function Chat() {
         };
 
         fetchData();
-    }, [token]); // Adding `token` to the dependency array
+
+        return () => {
+            if (eventSourceRef.current) {
+                eventSourceRef.current.close();
+            }
+        };
+
+    }, []); // Adding `token` to the dependency array
 
     return (
         <div>
@@ -174,17 +226,27 @@ function Chat() {
                     </form>
                 </>
             ) : (
-                <div>
-                    <input
-                        type="text"
-                        value={message}
-                        onChange={(e) => setMessage(e.target.value)}
-                    />
-                    &nbsp;&nbsp;
-                    <Button margin="xx-small" onClick={sendMessage}>
-                        Send
-                    </Button>
-                    <div>{response}</div>
+                <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1rem' }}>
+                        <TextInput
+                            value={message}
+                            onChange={(e) => setMessage(e.target.value)}
+                            placeholder="Type your message here..."
+                            renderLabel={<ScreenReaderContent>Message</ScreenReaderContent>}
+                            style={{ flexGrow: 1, marginRight: '0.5rem' }}
+                        />
+                        <Button margin="xx-small" onClick={sendMessage}>
+                            Send
+                        </Button>
+                    </div>
+                    <div style={{ whiteSpace: 'pre-wrap', background: '#f6f6f6', padding: '1rem', borderRadius: '5px', textAlign: 'left'}}>
+                        {
+                        responses
+                        /*responses.map((resp, index) => (
+                            <div key={index}>{resp}</div>
+                        ))*/
+                        }
+                    </div>
                 </div>
             )}
         </div>

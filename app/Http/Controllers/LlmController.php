@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 use Illuminate\Support\Facades\Log;
 
@@ -121,6 +122,25 @@ class LlmController extends Controller
     }
 
     public function chat(Request $request, LlmService $llmService) {
-        $response = $llmService->chat($request);
+        // Extract query parameters
+        $message = $request->query('message');
+        
+        // Validate the presence of the message
+        if (!$message) {
+            return response()->json(['error' => 'Message is required'], 400);
+        }
+
+        // Log the start of the response
+        Log::debug('Starting streaming response');
+
+        // Call the service to handle the streaming response
+        return new StreamedResponse(function () use ($llmService, $message) {
+            $llmService->streamChat($message);
+        }, 200, [
+            'Content-Type' => 'text/event-stream',
+            'Cache-Control' => 'no-cache',
+            'Connection' => 'keep-alive',
+            'X-Accel-Buffering' => 'no', // Disables nginx buffering
+        ]);
     }
 }
