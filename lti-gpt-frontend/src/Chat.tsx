@@ -19,7 +19,7 @@ function Chat() {
     //let partialAssistantMessageRef = '';
     const [messages, setMessages] = useState<Message[]>([]);
     const [apiKey, setApiKey] = useState<string>('');
-    const [contextTitle, setContextTitle] = useState<string>('');
+    const [contextTitle, setContextTitle] = useState<string>(''); 
     const [errors, setErrors] = useState<string[]>([]);
     const [isLlmSet, setIsLlmSet] = useState(true); //default to true to avoid flickering up warning message
     const responseContainerRef = useRef<HTMLDivElement | null>(null); //A reference to the div showing the responses. It allows scrolling to the bottom when new responses come in.
