@@ -7,14 +7,21 @@ import { TextArea } from '@instructure/ui-text-area'
 import { TextInput } from '@instructure/ui-text-input';
 import { CustomEventSource } from './CustomEventSource';
 
+interface Message {
+    role: 'user' | 'assistant';
+    content: string;
+  }
+
 function Chat() {
     const [message, setMessage] = useState<string>('');
-    //const [responses, setResponses] = useState<string[]>([]);
-    const [responses, setResponses] = useState<string>('');
+    //const [partialAssistantMessage, setPartialAssistantMessage] = useState<string>(''); // State to hold concatenated response
+    const partialAssistantMessageRef = useRef<string>(''); // Ref to hold concatenated response
+    //let partialAssistantMessageRef = '';
+    const [messages, setMessages] = useState<Message[]>([]);
     const [apiKey, setApiKey] = useState<string>('');
     const [contextTitle, setContextTitle] = useState<string>('');
     const [errors, setErrors] = useState<string[]>([]);
-    const [isLlmSet, setIsLlmSet] = useState(false);
+    const [isLlmSet, setIsLlmSet] = useState(true); //default to true to avoid flickering up warning message
     const responseContainerRef = useRef<HTMLDivElement | null>(null); //A reference to the div showing the responses. It allows scrolling to the bottom when new responses come in.
     const eventSourceRef = useRef<CustomEventSource | null>(null);
 
@@ -72,65 +79,51 @@ function Chat() {
         }
     };
 
-    /*const handleStreamData = (rawData: string) => {
-        console.log('rawData: ');
-        console.log(rawData);
-        const lines = rawData.split("\n\n");
-        console.log('lines: ');
-        console.log(lines);
-        const newParsedResponses: string[] = [];
-    
-        lines.forEach((line) => {
-            if (line.trim() === "data: [DONE]") return;
-    
-            if (line.startsWith("data: ")) {
-                const jsonString = line.substring(6); // Remove "data: " prefix
-                try {
-                    const json = JSON.parse(jsonString);
-                    const content = json?.choices[0]?.delta?.content;
-                    if (content) {
-                        newParsedResponses.push(content);
-                    }
-                } catch (error) {
-                    console.error("Failed to parse JSON:", error, "Raw data:", line);
-                }
-            }
-        });
-    
-        setResponses((prev) => [...prev, ...newParsedResponses]);
-    };*/
-    
-    
     const sendMessage = () => {
+        if (!message.trim()) return;
+        setMessages(prevMessages => [...prevMessages, { role: 'user', content: message }]);
+        partialAssistantMessageRef.current = ''; // Reset partial message for new input
+        //partialAssistantMessageRef = ''; // Reset partial message for new input
+
         if (eventSourceRef.current) {
             eventSourceRef.current.close();
         }
-        setResponses('');
+        //setResponses('');
+        
         eventSourceRef.current = new CustomEventSource(`http://localhost/api/llm/chat?message=${encodeURIComponent(message)}`, {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${token}`,
             },
         });
+        //setMessage('');
 
         eventSourceRef.current.addEventListener('message', (event: MessageEvent) => {
             try {
                 // Check if the message is "[DONE]"
                 if (event.data.trim() === "[DONE]") {
-                    //console.log('Stream finished.');
+                    console.log('message is done');
+                    setMessages(prevMessages => [...prevMessages, { role: 'assistant', content: partialAssistantMessageRef.current }]);
+                    console.log(partialAssistantMessageRef.current );
+                    //setMessages(prevMessages => [...prevMessages, { role: 'assistant', content: partialAssistantMessageRef }]);
+                    //partialAssistantMessageRef.current = ''; // Clear after use
+                    //partialAssistantMessageRef = ''; // Clear after use
                     return;
                 }
                 
                 const parsedData = JSON.parse(event.data.trim());
-                //console.log(parsedData);
-        
-                // Continue with your existing logic
+
+                console.log(parsedData);
+                
                 if (parsedData.choices && parsedData.choices[0] && parsedData.choices[0].delta) {
                     if (parsedData.choices[0].delta.content) {
-                        setResponses(prevResponses => prevResponses + parsedData.choices[0].delta.content);
-                        //setResponses(prevResponses => [...prevResponses, parsedData.choices[0].delta.content]);
+                        const assistantMessage = parsedData.choices[0].delta.content;
+                        console.log(assistantMessage);
+                        partialAssistantMessageRef.current += assistantMessage; // Concatenate response
+                        //setMessages(prevMessages => [...prevMessages.slice(0, -1), { role: 'assistant', content: partialAssistantMessageRef.current }]);
+                        //partialAssistantMessageRef += assistantMessage; // Concatenate response
                     } else {
-                        //console.log('Delta content is empty or undefined.');
+                        console.log('Delta content is empty or undefined.');
                     }
                 } else {
                     console.log('Unexpected data format received.');
@@ -171,11 +164,9 @@ function Chat() {
                 const result = await response.json();
                 //should always contain context as that is passed in token
                 setContextTitle(result.data.lms_context_title);
-                if (result.status === 'success') {
-                    setIsLlmSet(true);
-                } //else {
-                //    throw new Error('Problem getting context. You may need to relaunch this page.');
-                //}
+                if (result.status !== 'success') {
+                    setIsLlmSet(false);
+                }
             } catch (error: unknown) {
                 if (isError(error)) {
                     setErrors(prevErrors => [...prevErrors, error.message]);
@@ -197,10 +188,11 @@ function Chat() {
 
     // Scroll to bottom on new response
     useEffect(() => {
+        console.log('Updated messages:', messages);
         if (responseContainerRef.current) {
             responseContainerRef.current.scrollTop = responseContainerRef.current.scrollHeight;
         }
-    }, [responses]);
+    }, [messages]);
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
@@ -235,7 +227,11 @@ function Chat() {
             ) : (
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', margin: '0 auto', padding: '1rem', boxSizing: 'border-box', width: '100%' }}>
                     <div ref={responseContainerRef} style={{ flex: 1, overflowY: 'auto', background: '#f6f6f6', padding: '1rem', borderRadius: '5px', textAlign: 'left', whiteSpace: 'pre-wrap' }}>
-                        {responses}
+                    {messages.map((msg, index) => (
+                        <div key={index} style={{ padding: '10px', background: msg.role === 'user' ? '#ddd' : '#fff', marginBottom: '10px', borderRadius: '5px' }}>
+                            {msg.content}
+                        </div>
+                        ))}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'flex-start', marginTop: '1rem', borderTop: '1px solid #ddd', paddingTop: '1rem' }}>
                         <TextArea
@@ -244,7 +240,8 @@ function Chat() {
                             placeholder="Type your message here..."
                             label={<ScreenReaderContent>Message</ScreenReaderContent>}
                             maxHeight={'33vh'}
-                            //style={{ flexGrow: 1, marginRight: '0.5rem', maxHeight: '33vh', overflowY: 'auto' }}
+                            height={'50px'}
+                            style={{ flexGrow: 1, marginRight: '0.5rem', maxHeight: '33vh', overflowY: 'auto' }}
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter' && !e.shiftKey) {
                                     e.preventDefault();
