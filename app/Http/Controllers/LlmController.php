@@ -122,20 +122,22 @@ class LlmController extends Controller
     }
 
     public function chat(Request $request, LlmService $llmService) {
-        // Extract query parameters
-        $message = $request->query('message');
+        // Extract the message from the request body
+        $messages = $request->input('messages');
+
+        //Log::debug('Messages: ' . json_encode((array)$messages));
         
         // Validate the presence of the message
-        if (!$message) {
-            return response()->json(['error' => 'Message is required'], 400);
+        if (!$messages) {
+            return response()->json(['error' => 'Messages are required'], 400);
         }
 
         // Log the start of the response
         Log::debug('Starting streaming response');
 
         // Call the service to handle the streaming response
-        return new StreamedResponse(function () use ($llmService, $message) {
-            $llmService->streamChat($message);
+        return new StreamedResponse(function () use ($llmService, $messages) {
+            $llmService->streamChat($messages);
         }, 200, [
             'Content-Type' => 'text/event-stream',
             'Cache-Control' => 'no-cache',

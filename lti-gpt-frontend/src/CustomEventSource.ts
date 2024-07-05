@@ -22,8 +22,7 @@ export class CustomEventSource { //created by ChatGPT
             const decoder = new TextDecoder();
 
             let buffer = '';
-
-            // eslint-disable-next-line
+            // eslint-disable-next-line         
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
@@ -31,8 +30,6 @@ export class CustomEventSource { //created by ChatGPT
                 buffer += decoder.decode(value, { stream: true });
 
                 const lines = buffer.split('\n\n');
-
-                //console.log(lines);
 
                 buffer = lines.pop() ?? '';
 
@@ -45,7 +42,6 @@ export class CustomEventSource { //created by ChatGPT
                 }
             }
 
-            // Process any remaining buffer after the reader is done
             if (buffer.startsWith('data: ')) {
                 const data = buffer.substring(6);
                 const event = new MessageEvent('message', { data });

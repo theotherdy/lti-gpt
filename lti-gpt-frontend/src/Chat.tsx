@@ -18,6 +18,7 @@ function Chat() {
     const partialAssistantMessageRef = useRef<string>(''); // Ref to hold concatenated response
     //let partialAssistantMessageRef = '';
     const [messages, setMessages] = useState<Message[]>([]);
+    const messagesRef = useRef<Message[]>([]); // Ref to hold the messages array which will be current when sent to the API
     const [apiKey, setApiKey] = useState<string>('');
     const [contextTitle, setContextTitle] = useState<string>(''); 
     const [errors, setErrors] = useState<string[]>([]);
@@ -81,29 +82,44 @@ function Chat() {
 
     const sendMessage = () => {
         if (!message.trim()) return;
-        setMessages(prevMessages => [...prevMessages, { role: 'user', content: message }]);
+        //setMessages(prevMessages => [...prevMessages, { role: 'user', content: message }]);
+        const newMessage: Message = { role: 'user', content: message };
+        const updatedMessages: Message[] = [...messagesRef.current, newMessage]; // Use messagesRef.current
+
+        setMessages(updatedMessages);
+        messagesRef.current = updatedMessages; // Update messagesRef
+
         partialAssistantMessageRef.current = ''; // Reset partial message for new input
         //partialAssistantMessageRef = ''; // Reset partial message for new input
 
         if (eventSourceRef.current) {
             eventSourceRef.current.close();
         }
-        //setResponses('');
-        
-        eventSourceRef.current = new CustomEventSource(`http://localhost/api/llm/chat?message=${encodeURIComponent(message)}`, {
-            method: 'GET',
+
+        // Transform messages to an array of objects with 'role' and 'content' keys
+        const transformedMessages = messagesRef.current.map(msg => ({ role: msg.role, content: msg.content }));
+
+        eventSourceRef.current = new CustomEventSource(`http://localhost/api/llm/chat`, {
+            method: 'POST',
             headers: {
+                'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`,
             },
+            //body: JSON.stringify({ message: message }),
+            body: JSON.stringify({ messages: transformedMessages }),
         });
-        //setMessage('');
-
+        
         eventSourceRef.current.addEventListener('message', (event: MessageEvent) => {
             try {
                 // Check if the message is "[DONE]"
                 if (event.data.trim() === "[DONE]") {
                     console.log('message is done');
-                    setMessages(prevMessages => [...prevMessages, { role: 'assistant', content: partialAssistantMessageRef.current }]);
+                    setMessages(prevMessages => {
+                        const newMessages: Message[] = [...prevMessages, { role: 'assistant', content: partialAssistantMessageRef.current }];
+                        messagesRef.current = newMessages; // Update messagesRef
+                        return newMessages;
+                    });
+                    //setMessages(prevMessages => [...prevMessages, { role: 'assistant', content: partialAssistantMessageRef.current }]);
                     console.log(partialAssistantMessageRef.current );
                     //setMessages(prevMessages => [...prevMessages, { role: 'assistant', content: partialAssistantMessageRef }]);
                     //partialAssistantMessageRef.current = ''; // Clear after use

@@ -82,7 +82,7 @@ class LlmService {
         }
     }
 
-    public function streamChat(string $message)
+    public function streamChat(array $messages)
 {
     // Retrieve the context ID from configuration
     $contextId = config('jwt.context_id');
@@ -108,12 +108,13 @@ class LlmService {
     }
 
     $apiKey = $context->llm->API_key;
-    Log::debug('Using API Key: ' . $apiKey);
+    //Log::debug('Messages: ' . print_r($messages));
+    //Log::debug('Messages: ' . print_r(json_encode((array)$messages)));
+    
 
     $client = new Client();
 
     try {
-        // Make the request to OpenAI with streaming enabled
         $response = $client->post('https://api.openai.com/v1/chat/completions', [
             'headers' => [
                 'Authorization' => 'Bearer ' . $apiKey,
@@ -121,9 +122,7 @@ class LlmService {
             ],
             'json' => [
                 'model' => 'gpt-4o',
-                'messages' => [
-                    ['role' => 'user', 'content' => $message],
-                ],
+                'messages' => $messages,
                 'stream' => true,
             ],
             'stream' => true, // Enable streaming
