@@ -82,86 +82,29 @@ class LlmService {
         }
     }
 
-    public function streamChat(array $messages)
-{
-    // Retrieve the context ID from configuration
-    $contextId = config('jwt.context_id');
-
-    if (!$contextId) {
-        Log::error('Context ID not found in configuration.');
-        echo json_encode([
-            'status' => 'failure',
-            'message' => 'Context ID not found in configuration.'
-        ]);
-        return;
-    }
-
-    // Retrieve the API key based on the context
-    $context = Context::find($contextId);
-    if (!$context || !$context->llm) {
-        Log::error('API key not found for context.');
-        echo json_encode([
-            'status' => 'failure',
-            'message' => 'API key not found for context.'
-        ]);
-        return;
-    }
-
-    $apiKey = $context->llm->API_key;
-    //Log::debug('Messages: ' . print_r($messages));
-    //Log::debug('Messages: ' . print_r(json_encode((array)$messages)));
-    
-
-    $client = new Client();
-
-    try {
-        $response = $client->post('https://api.openai.com/v1/chat/completions', [
-            'headers' => [
-                'Authorization' => 'Bearer ' . $apiKey,
-                'Content-Type' => 'application/json',
-            ],
-            'json' => [
-                'model' => 'gpt-4o',
-                'messages' => $messages,
-                'stream' => true,
-            ],
-            'stream' => true, // Enable streaming
-        ]);
-
-        $stream = $response->getBody();
-
-        header('Content-Type: text/event-stream');
-        header('Cache-Control: no-cache');
-        header('Connection: keep-alive');
-
-        while (!$stream->eof()) {
-            // Read from the stream and send it as-is to the client
-            $chunk = $stream->read(1024);
-            if (!empty($chunk)) {
-                echo $chunk;
-                ob_flush();
-                flush();
-            }
-        }
-    } catch (\Exception $e) {
-        Log::error('Streaming failed: ' . $e->getMessage());
-        echo json_encode([
-            'status' => 'failure',
-            'message' => 'Streaming failed: ' . $e->getMessage()
-        ]);
-    }
-}
-    
-    /*public function streamChat(string $message)
+    /**
+     * Respond to $messages, using $conversationId to work out whetehr this is an ongoing or a new conversation to help with working out tokens sent each way
+     */
+    public function streamChat(array $messages, $conversationId = null)
     {
-        // Retrieve the context ID from configuration
+        // Retrieve the user and context ID from configuration
         $contextId = config('jwt.context_id');
+        $userId = config('jwt.user_id');
 
         if (!$contextId) {
             Log::error('Context ID not found in configuration.');
             echo json_encode([
                 'status' => 'failure',
                 'message' => 'Context ID not found in configuration.'
+            ]);
+            return;
+        }
+
+        if (!$userId ) {
+            Log::error('User ID not found in configuration.');
+            echo json_encode([
+                'status' => 'failure',
+                'message' => 'User ID not found in configuration.'
             ]);
             return;
         }
@@ -178,22 +121,18 @@ class LlmService {
         }
 
         $apiKey = $context->llm->API_key;
-        Log::debug('Using API Key: ' . $apiKey);
-
+        
         $client = new Client();
 
         try {
-            // Make the request to OpenAI with streaming enabled
             $response = $client->post('https://api.openai.com/v1/chat/completions', [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $apiKey,
                     'Content-Type' => 'application/json',
                 ],
                 'json' => [
-                    'model' => 'gpt-3.5-turbo',
-                    'messages' => [
-                        ['role' => 'user', 'content' => $message],
-                    ],
+                    'model' => 'gpt-4o',
+                    'messages' => $messages,
                     'stream' => true,
                 ],
                 'stream' => true, // Enable streaming
@@ -201,10 +140,18 @@ class LlmService {
 
             $stream = $response->getBody();
 
+            header('Content-Type: text/event-stream');
+            header('Cache-Control: no-cache');
+            header('Connection: keep-alive');
+
             while (!$stream->eof()) {
-                echo 'data: ' . json_encode($stream->read(1024)) . "\n\n";
-                ob_flush();
-                flush();
+                // Read from the stream and send it as-is to the client
+                $chunk = $stream->read(1024);
+                if (!empty($chunk)) {
+                    echo $chunk;
+                    ob_flush();
+                    flush();
+                }
             }
         } catch (\Exception $e) {
             Log::error('Streaming failed: ' . $e->getMessage());
@@ -213,5 +160,7 @@ class LlmService {
                 'message' => 'Streaming failed: ' . $e->getMessage()
             ]);
         }
-    }*/
+    }
+    
+    
 }

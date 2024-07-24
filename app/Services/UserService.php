@@ -29,6 +29,9 @@ class UserService {
             ['is_instructor' => $is_instructor] //set or update these
         );
 
+        //set config to user id
+        config(['jwt.context_user_id' => $context_user->id]);
+
         return $context_user;  
     }
 

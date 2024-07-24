@@ -41,10 +41,10 @@ class ContextUser extends Model
     }
 
     /**
-     * Get the messages for the contextUser.
+     * Get the conversations for the contextUser.
      */
-    public function messages(): HasMany
+    public function conversations(): HasMany
     {
-        return $this->hasMany(Message::class);
+        return $this->hasMany(Conversation::class);
     }
 }

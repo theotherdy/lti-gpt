@@ -29,10 +29,10 @@ class Message extends Model
     }*/
 
     /**
-     * Get the context_user that the conversation is with.
+     * Get the conversation that the message is part of.
      */
-    public function contextUser(): BelongsTo
+    public function conversation(): BelongsTo
     {
-        return $this->belongsTo(ContextUser::class);
+        return $this->belongsTo(Conversation::class);
     }
 }
