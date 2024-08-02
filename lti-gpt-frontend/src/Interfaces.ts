@@ -8,3 +8,8 @@ export interface Conversation {
     timestamp: number;
     messages: Message[];
   }
+
+export interface ConversationDataFromAPI {
+    id: string;
+    created_at: string;
+}  

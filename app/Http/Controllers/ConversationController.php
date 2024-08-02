@@ -78,6 +78,21 @@ class ConversationController extends Controller
      */
     public function destroy(string $id)
     {
-        //
+        $contextUserId = config('jwt.context_user_id');
+        $conversation = Conversation::where('id', $id)->where('context_user_id', $contextUserId)->first();
+
+        if (!$conversation) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Conversation not found or not accessible for this user',
+            ], 404);
+        }
+
+        $conversation->delete();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Conversation deleted successfully',
+        ]);
     }
 }

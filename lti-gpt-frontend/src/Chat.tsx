@@ -16,30 +16,34 @@ import { View } from '@instructure/ui-view';
 
 import { CustomEventSource } from './CustomEventSource';
 import Conversations from './Conversations'; // Import the new Conversations component
-import { Message, Conversation } from './Interfaces';
+import { Message, Conversation, ConversationDataFromAPI } from './Interfaces';
 
 
 function Chat() {
+    //context and api key
+    const [apiKey, setApiKey] = useState<string>('');
+    const [isLlmSet, setIsLlmSet] = useState(true); //default to true to avoid flickering up warning message
+    const [contextTitle, setContextTitle] = useState<string>(''); 
+
     //variables
     const [message, setMessage] = useState<string>('');
     const partialAssistantMessageRef = useRef<string>(''); // Ref to hold concatenated response
     const [messages, setMessages] = useState<Message[]>([]);
     const messagesRef = useRef<Message[]>([]); // Ref to hold the messages array which will be current when sent to the API
-    const [apiKey, setApiKey] = useState<string>('');
-    const [contextTitle, setContextTitle] = useState<string>(''); 
-    const [errors, setErrors] = useState<string[]>([]);
-    const [isLlmSet, setIsLlmSet] = useState(true); //default to true to avoid flickering up warning message
+    const prevMessagesLengthRef = useRef<number>(messages.length); //used to chcek if lenbgth of conversation has increased
+    
     const [conversationId, setConversationId] = useState<string | null>(null);
     const [conversations, setConversations] = useState<Conversation[]>([]);
-    const prevMessagesLengthRef = useRef<number>(messages.length);
+
+    const [errors, setErrors] = useState<string[]>([]);
+    
     //interface    
-    //const [drawerOverlayed, setDrawerOverlayed] = useState(false);
     const [drawerOpen, setDrawerOpen] = useState(true);
     const responseContainerRef = useRef<HTMLDivElement | null>(null); //A reference to the div showing the responses. It allows scrolling to the bottom when new responses come in.
-    //event source
-    const eventSourceRef = useRef<CustomEventSource | null>(null);
+    const eventSourceRef = useRef<CustomEventSource | null>(null);//event source
+    
     //TODO temp token here - will move
-    const token = "eyJraWQiOiJsdGktand0LWlkIiwidHlwIjoiSldUIiwiYWxnIjoiUlMyNTYifQ.eyJodHRwczpcL1wvcHVybC5pbXNnbG9iYWwub3JnXC9zcGVjXC9sdGlcL2NsYWltXC9sdGkxMV9sZWdhY3lfdXNlcl9pZCI6IjdlYjdjZDQxYmRjYWM2MTMxZDcyMzBlOTVmNzllNDBhYzczMzdlODgiLCJzdWIiOiIyZDRjMTJmOC0yYThjLTQyODUtOWM2YS04MTZiNDljYmYxODUiLCJodHRwczpcL1wvcHVybC5pbXNnbG9iYWwub3JnXC9zcGVjXC9sdGlcL2NsYWltXC9kZXBsb3ltZW50X2lkIjoiMzM5ODE6YjFkM2ZkZjE2MGE2NjllODYyOGRhZjU0NjljN2RkZDk4Y2RhZDc5YiIsImh0dHBzOlwvXC9wdXJsLmltc2dsb2JhbC5vcmdcL3NwZWNcL2x0aVwvY2xhaW1cL3ZlcnNpb24iOiIxLjMuMCIsImh0dHBzOlwvXC9wdXJsLmltc2dsb2JhbC5vcmdcL3NwZWNcL2x0aVwvY2xhaW1cL2x0aTFwMSI6eyJ1c2VyX2lkIjoiN2ViN2NkNDFiZGNhYzYxMzFkNzIzMGU5NWY3OWU0MGFjNzMzN2U4OCIsInZhbGlkYXRpb25fY29udGV4dCI6bnVsbCwiZXJyb3JzIjp7ImVycm9ycyI6e319fSwiaXNzIjoiaHR0cHM6XC9cL2x0aS5jYW52YXMub3guYWMudWsiLCJsb2NhbGUiOiJlbi1HQiIsImh0dHBzOlwvXC9wdXJsLmltc2dsb2JhbC5vcmdcL3NwZWNcL2x0aVwvY2xhaW1cL3Rvb2xfcGxhdGZvcm0iOnsidmFsaWRhdGlvbl9jb250ZXh0IjpudWxsLCJuYW1lIjoiVW5pdmVyc2l0eSBvZiBPeGZvcmQiLCJndWlkIjoiNWtCSFF5aHY3WFB0YnE4NGc4WTRLWWJ5SG1yUzdvZFVSUjZOcmlCdjpjYW52YXMtbG1zIiwicHJvZHVjdF9mYW1pbHlfY29kZSI6ImNhbnZhcyIsInZlcnNpb24iOiJjbG91ZCIsImVycm9ycyI6eyJlcnJvcnMiOnt9fX0sImh0dHBzOlwvXC9wdXJsLmltc2dsb2JhbC5vcmdcL3NwZWNcL2x0aVwvY2xhaW1cL2N1c3RvbSI6eyJwZXJzb25fbmFtZV9naXZlbiI6IkRhbWlvbiIsImNhbnZhc191c2VyX3ByZWZlcnNfaGlnaF9jb250cmFzdCI6ImZhbHNlIiwiY2FudmFzX2FjY291bnRfaWQiOiI0IiwicGVyc29uX25hbWVfZmFtaWx5IjoiWW91bmciLCJjYW52YXNfdXNlcl9zaXNfaWQiOiJtZGl2MDA0NCIsImNhbnZhc19hY2NvdW50X25hbWUiOiIyQiBNZWRpY2FsIFNjaWVuY2VzIiwiY2FudmFzX2FwaV9iYXNlX3VybCI6Imh0dHBzOlwvXC9jYW52YXMub3guYWMudWsiLCJiYWNrZW5kIjoiaHR0cHM6XC9cL21hbmFnZS1leHRlcm5hbC11c2Vycy5hcHBzLmNhbnZhcy5veC5hYy51ayIsInBlcnNvbl9lbWFpbF9wcmltYXJ5IjoiZGFtaW9uLnlvdW5nQG1lZHNjaS5veC5hYy51ayIsImNhbnZhc19tZW1iZXJzaGlwX3JvbGVzIjoiQWNjb3VudCBBZG1pbixMb2NhbCBDYW52YXMgQ29vcmRpbmF0b3IiLCJjYW52YXNfdXNlcl9pZCI6IjM5IiwiY29tX2luc3RydWN0dXJlX2JyYW5kX2NvbmZpZ19qc29uX3VybCI6Imh0dHBzOlwvXC9kdTExaGpjdngwdXFiLmNsb3VkZnJvbnQubmV0XC9kaXN0XC9icmFuZGFibGVfY3NzXC9mNTU3NDU1NWE5MjM4M2YxMDA2YWFhNGRmOTkzMGU1MVwvdmFyaWFibGVzLTdkZDRiODA5MThhZjBlMDIxOGVjMDIyOWU0YmQ1ODczLmpzb24ifSwiaHR0cHM6XC9cL3d3dy5pbnN0cnVjdHVyZS5jb21cL3BsYWNlbWVudCI6ImFjY291bnRfbmF2aWdhdGlvbiIsImF6cCI6IjEyMjAxMDAwMDAwMDAwMDE1NiIsImh0dHBzOlwvXC9wdXJsLmltc2dsb2JhbC5vcmdcL3NwZWNcL2x0aVwvY2xhaW1cL2xpcyI6eyJjb3Vyc2Vfb2ZmZXJpbmdfc291cmNlZGlkIjoiJENvdXJzZVNlY3Rpb24uc291cmNlZElkIiwidmFsaWRhdGlvbl9jb250ZXh0IjpudWxsLCJwZXJzb25fc291cmNlZGlkIjoibWRpdjAwNDQiLCJlcnJvcnMiOnsiZXJyb3JzIjp7fX19LCJodHRwczpcL1wvcHVybC5pbXNnbG9iYWwub3JnXC9zcGVjXC9sdGlcL2NsYWltXC9sYXVuY2hfcHJlc2VudGF0aW9uIjp7ImRvY3VtZW50X3RhcmdldCI6ImlmcmFtZSIsInZhbGlkYXRpb25fY29udGV4dCI6bnVsbCwid2lkdGgiOjgwMCwicmV0dXJuX3VybCI6Imh0dHBzOlwvXC9jYW52YXMub3guYWMudWtcL2FjY291bnRzXC80XC9leHRlcm5hbF9jb250ZW50XC9zdWNjZXNzXC9leHRlcm5hbF90b29sX3JlZGlyZWN0IiwibG9jYWxlIjoiZW4tR0IiLCJlcnJvcnMiOnsiZXJyb3JzIjp7fX0sImhlaWdodCI6NDAwfSwiZXhwIjoxNzIxODUwODQ1LCJpYXQiOjE3MjE4MjIwNDUsImVtYWlsIjoiZGFtaW9uLnlvdW5nQG1lZHNjaS5veC5hYy51ayIsInRvb2xfc3VwcG9ydF9lbmRwb2ludCI6Imh0dHBzOlwvXC90b29scy5jYW52YXMub3guYWMudWsiLCJodHRwczpcL1wvcHVybC5pbXNnbG9iYWwub3JnXC9zcGVjXC9sdGlcL2NsYWltXC9yb2xlcyI6WyJodHRwOlwvXC9wdXJsLmltc2dsb2JhbC5vcmdcL3ZvY2FiXC9saXNcL3YyXC9pbnN0aXR1dGlvblwvcGVyc29uI0FkbWluaXN0cmF0b3IiLCJodHRwOlwvXC9wdXJsLmltc2dsb2JhbC5vcmdcL3ZvY2FiXC9saXNcL3YyXC9pbnN0aXR1dGlvblwvcGVyc29uI0luc3RydWN0b3IiLCJodHRwOlwvXC9wdXJsLmltc2dsb2JhbC5vcmdcL3ZvY2FiXC9saXNcL3YyXC9pbnN0aXR1dGlvblwvcGVyc29uI1N0dWRlbnQiLCJodHRwOlwvXC9wdXJsLmltc2dsb2JhbC5vcmdcL3ZvY2FiXC9saXNcL3YyXC9zeXN0ZW1cL3BlcnNvbiNVc2VyIl0sImdpdmVuX25hbWUiOiJEYW1pb24iLCJub25jZSI6ImFmODNhNzc5LTZhMzQtNDhiOC04ZTg4LTgyMzJlY2E2MTFhMSIsImh0dHBzOlwvXC9wdXJsLmltc2dsb2JhbC5vcmdcL3NwZWNcL2x0aVwvY2xhaW1cL3Jlc291cmNlX2xpbmsiOnsidmFsaWRhdGlvbl9jb250ZXh0IjpudWxsLCJkZXNjcmlwdGlvbiI6bnVsbCwiaWQiOiI5NzJmY2E2Zjg4YTc2NjU0Njc5OTc3NmFjODI4N2RmODFlMmJiZTJjIiwidGl0bGUiOiIyQiBNZWRpY2FsIFNjaWVuY2VzIiwiZXJyb3JzIjp7ImVycm9ycyI6e319fSwiaHR0cHM6XC9cL3B1cmwuaW1zZ2xvYmFsLm9yZ1wvc3BlY1wvbHRpXC9jbGFpbVwvdGFyZ2V0X2xpbmtfdXJpIjoiaHR0cHM6XC9cL3N0YXRpYy1tYW5hZ2UtZXh0ZXJuYWwtdXNlcnMuYXBwcy5jYW52YXMub3guYWMudWsiLCJodHRwczpcL1wvcHVybC5pbXNnbG9iYWwub3JnXC9zcGVjXC9sdGlcL2NsYWltXC9jb250ZXh0Ijp7InZhbGlkYXRpb25fY29udGV4dCI6bnVsbCwiaWQiOiI5NzJmY2E2Zjg4YTc2NjU0Njc5OTc3NmFjODI4N2RmODFlMmJiZTJjIiwidGl0bGUiOiIyQiBNZWRpY2FsIFNjaWVuY2VzIiwidHlwZSI6WyJBY2NvdW50Il0sImVycm9ycyI6eyJlcnJvcnMiOnt9fX0sInBpY3R1cmUiOiJodHRwczpcL1wvY2FudmFzLm94LmFjLnVrXC9pbWFnZXNcL3RodW1ibmFpbHNcLzEzMjk4XC9IYm5FaGxKSDFGaVNMV1lUWmxQbHhZRTgzaUc2OTRNS204bkNTdGZQIiwiYXVkIjoiMTIyMDEwMDAwMDAwMDAwMTU2IiwiaHR0cHM6XC9cL3B1cmwuaW1zZ2xvYmFsLm9yZ1wvc3BlY1wvbHRpXC9jbGFpbVwvbWVzc2FnZV90eXBlIjoiTHRpUmVzb3VyY2VMaW5rUmVxdWVzdCIsImlzcy1vcmlnIjoiaHR0cHM6XC9cL2NhbnZhcy5pbnN0cnVjdHVyZS5jb20iLCJuYW1lIjoiRGFtaW9uIFlvdW5nIiwiZmFtaWx5X25hbWUiOiJZb3VuZyIsImVycm9ycyI6eyJlcnJvcnMiOnt9fX0.Jco3eolnHEuo35hbc_jWsrzP3U7kdcMQ7-BXWGZDuYbC3H0HxorhfwyMtprqQdWxcbo2rz1S0wwASD5vInoXZi7HO_nXty7wjrkubvBcFpyVdRzbrNX4K66zVDtN6J_DNrOGtnccmo94JSo82WmUnsuuA7ctPYSAuaM_qMgNPULJimROpKWkh0UtG45TPQjxITq3HJcMF1B34VdfccoC0bX1fAQAjSJyfaNdOBgjgInFpTfKSMurYUvpSBgZBoydCZSBZN0qCOesA4wWaYbYFrzpyRMaYjjOAAsNrW60WlOTprV_RTVok5n_L4KmLZM4TMfEVF-VaOlcjKEFQAcLrA"; // Assuming this will be provided or managed elsewhere
+    const token = "eyJraWQiOiJsdGktand0LWlkIiwidHlwIjoiSldUIiwiYWxnIjoiUlMyNTYifQ.eyJodHRwczpcL1wvcHVybC5pbXNnbG9iYWwub3JnXC9zcGVjXC9sdGlcL2NsYWltXC9sdGkxMV9sZWdhY3lfdXNlcl9pZCI6IjdlYjdjZDQxYmRjYWM2MTMxZDcyMzBlOTVmNzllNDBhYzczMzdlODgiLCJzdWIiOiIyZDRjMTJmOC0yYThjLTQyODUtOWM2YS04MTZiNDljYmYxODUiLCJodHRwczpcL1wvcHVybC5pbXNnbG9iYWwub3JnXC9zcGVjXC9sdGlcL2NsYWltXC9kZXBsb3ltZW50X2lkIjoiMzM5ODE6YjFkM2ZkZjE2MGE2NjllODYyOGRhZjU0NjljN2RkZDk4Y2RhZDc5YiIsImh0dHBzOlwvXC9wdXJsLmltc2dsb2JhbC5vcmdcL3NwZWNcL2x0aVwvY2xhaW1cL3ZlcnNpb24iOiIxLjMuMCIsImh0dHBzOlwvXC9wdXJsLmltc2dsb2JhbC5vcmdcL3NwZWNcL2x0aVwvY2xhaW1cL2x0aTFwMSI6eyJ1c2VyX2lkIjoiN2ViN2NkNDFiZGNhYzYxMzFkNzIzMGU5NWY3OWU0MGFjNzMzN2U4OCIsInZhbGlkYXRpb25fY29udGV4dCI6bnVsbCwiZXJyb3JzIjp7ImVycm9ycyI6e319fSwiaXNzIjoiaHR0cHM6XC9cL2x0aS5jYW52YXMub3guYWMudWsiLCJsb2NhbGUiOiJlbi1HQiIsImh0dHBzOlwvXC9wdXJsLmltc2dsb2JhbC5vcmdcL3NwZWNcL2x0aVwvY2xhaW1cL3Rvb2xfcGxhdGZvcm0iOnsidmFsaWRhdGlvbl9jb250ZXh0IjpudWxsLCJuYW1lIjoiVW5pdmVyc2l0eSBvZiBPeGZvcmQiLCJndWlkIjoiNWtCSFF5aHY3WFB0YnE4NGc4WTRLWWJ5SG1yUzdvZFVSUjZOcmlCdjpjYW52YXMtbG1zIiwicHJvZHVjdF9mYW1pbHlfY29kZSI6ImNhbnZhcyIsInZlcnNpb24iOiJjbG91ZCIsImVycm9ycyI6eyJlcnJvcnMiOnt9fX0sImh0dHBzOlwvXC9wdXJsLmltc2dsb2JhbC5vcmdcL3NwZWNcL2x0aVwvY2xhaW1cL2N1c3RvbSI6eyJwZXJzb25fbmFtZV9naXZlbiI6IkRhbWlvbiIsImNhbnZhc191c2VyX3ByZWZlcnNfaGlnaF9jb250cmFzdCI6ImZhbHNlIiwiY2FudmFzX2FjY291bnRfaWQiOiI0IiwicGVyc29uX25hbWVfZmFtaWx5IjoiWW91bmciLCJjYW52YXNfdXNlcl9zaXNfaWQiOiJtZGl2MDA0NCIsImNhbnZhc19hY2NvdW50X25hbWUiOiIyQiBNZWRpY2FsIFNjaWVuY2VzIiwiY2FudmFzX2FwaV9iYXNlX3VybCI6Imh0dHBzOlwvXC9jYW52YXMub3guYWMudWsiLCJiYWNrZW5kIjoiaHR0cHM6XC9cL21hbmFnZS1leHRlcm5hbC11c2Vycy5hcHBzLmNhbnZhcy5veC5hYy51ayIsInBlcnNvbl9lbWFpbF9wcmltYXJ5IjoiZGFtaW9uLnlvdW5nQG1lZHNjaS5veC5hYy51ayIsImNhbnZhc19tZW1iZXJzaGlwX3JvbGVzIjoiQWNjb3VudCBBZG1pbixMb2NhbCBDYW52YXMgQ29vcmRpbmF0b3IiLCJjYW52YXNfdXNlcl9pZCI6IjM5IiwiY29tX2luc3RydWN0dXJlX2JyYW5kX2NvbmZpZ19qc29uX3VybCI6Imh0dHBzOlwvXC9kdTExaGpjdngwdXFiLmNsb3VkZnJvbnQubmV0XC9kaXN0XC9icmFuZGFibGVfY3NzXC9mNTU3NDU1NWE5MjM4M2YxMDA2YWFhNGRmOTkzMGU1MVwvdmFyaWFibGVzLTdkZDRiODA5MThhZjBlMDIxOGVjMDIyOWU0YmQ1ODczLmpzb24ifSwiaHR0cHM6XC9cL3d3dy5pbnN0cnVjdHVyZS5jb21cL3BsYWNlbWVudCI6ImFjY291bnRfbmF2aWdhdGlvbiIsImF6cCI6IjEyMjAxMDAwMDAwMDAwMDE1NiIsImh0dHBzOlwvXC9wdXJsLmltc2dsb2JhbC5vcmdcL3NwZWNcL2x0aVwvY2xhaW1cL2xpcyI6eyJjb3Vyc2Vfb2ZmZXJpbmdfc291cmNlZGlkIjoiJENvdXJzZVNlY3Rpb24uc291cmNlZElkIiwidmFsaWRhdGlvbl9jb250ZXh0IjpudWxsLCJwZXJzb25fc291cmNlZGlkIjoibWRpdjAwNDQiLCJlcnJvcnMiOnsiZXJyb3JzIjp7fX19LCJodHRwczpcL1wvcHVybC5pbXNnbG9iYWwub3JnXC9zcGVjXC9sdGlcL2NsYWltXC9sYXVuY2hfcHJlc2VudGF0aW9uIjp7ImRvY3VtZW50X3RhcmdldCI6ImlmcmFtZSIsInZhbGlkYXRpb25fY29udGV4dCI6bnVsbCwid2lkdGgiOjgwMCwicmV0dXJuX3VybCI6Imh0dHBzOlwvXC9jYW52YXMub3guYWMudWtcL2FjY291bnRzXC80XC9leHRlcm5hbF9jb250ZW50XC9zdWNjZXNzXC9leHRlcm5hbF90b29sX3JlZGlyZWN0IiwibG9jYWxlIjoiZW4tR0IiLCJlcnJvcnMiOnsiZXJyb3JzIjp7fX0sImhlaWdodCI6NDAwfSwiZXhwIjoxNzIyNjE1OTkwLCJpYXQiOjE3MjI1ODcxOTAsImVtYWlsIjoiZGFtaW9uLnlvdW5nQG1lZHNjaS5veC5hYy51ayIsInRvb2xfc3VwcG9ydF9lbmRwb2ludCI6Imh0dHBzOlwvXC90b29scy5jYW52YXMub3guYWMudWsiLCJodHRwczpcL1wvcHVybC5pbXNnbG9iYWwub3JnXC9zcGVjXC9sdGlcL2NsYWltXC9yb2xlcyI6WyJodHRwOlwvXC9wdXJsLmltc2dsb2JhbC5vcmdcL3ZvY2FiXC9saXNcL3YyXC9pbnN0aXR1dGlvblwvcGVyc29uI0FkbWluaXN0cmF0b3IiLCJodHRwOlwvXC9wdXJsLmltc2dsb2JhbC5vcmdcL3ZvY2FiXC9saXNcL3YyXC9pbnN0aXR1dGlvblwvcGVyc29uI0luc3RydWN0b3IiLCJodHRwOlwvXC9wdXJsLmltc2dsb2JhbC5vcmdcL3ZvY2FiXC9saXNcL3YyXC9pbnN0aXR1dGlvblwvcGVyc29uI1N0dWRlbnQiLCJodHRwOlwvXC9wdXJsLmltc2dsb2JhbC5vcmdcL3ZvY2FiXC9saXNcL3YyXC9zeXN0ZW1cL3BlcnNvbiNVc2VyIl0sImdpdmVuX25hbWUiOiJEYW1pb24iLCJub25jZSI6ImE5OGEzNTg5LWU4N2UtNDVjMC1hY2VmLThjNmM1NzBkMWUyYiIsImh0dHBzOlwvXC9wdXJsLmltc2dsb2JhbC5vcmdcL3NwZWNcL2x0aVwvY2xhaW1cL3Jlc291cmNlX2xpbmsiOnsidmFsaWRhdGlvbl9jb250ZXh0IjpudWxsLCJkZXNjcmlwdGlvbiI6bnVsbCwiaWQiOiI5NzJmY2E2Zjg4YTc2NjU0Njc5OTc3NmFjODI4N2RmODFlMmJiZTJjIiwidGl0bGUiOiIyQiBNZWRpY2FsIFNjaWVuY2VzIiwiZXJyb3JzIjp7ImVycm9ycyI6e319fSwiaHR0cHM6XC9cL3B1cmwuaW1zZ2xvYmFsLm9yZ1wvc3BlY1wvbHRpXC9jbGFpbVwvdGFyZ2V0X2xpbmtfdXJpIjoiaHR0cHM6XC9cL3N0YXRpYy1tYW5hZ2UtZXh0ZXJuYWwtdXNlcnMuYXBwcy5jYW52YXMub3guYWMudWsiLCJodHRwczpcL1wvcHVybC5pbXNnbG9iYWwub3JnXC9zcGVjXC9sdGlcL2NsYWltXC9jb250ZXh0Ijp7InZhbGlkYXRpb25fY29udGV4dCI6bnVsbCwiaWQiOiI5NzJmY2E2Zjg4YTc2NjU0Njc5OTc3NmFjODI4N2RmODFlMmJiZTJjIiwidGl0bGUiOiIyQiBNZWRpY2FsIFNjaWVuY2VzIiwidHlwZSI6WyJBY2NvdW50Il0sImVycm9ycyI6eyJlcnJvcnMiOnt9fX0sInBpY3R1cmUiOiJodHRwczpcL1wvY2FudmFzLm94LmFjLnVrXC9pbWFnZXNcL3RodW1ibmFpbHNcLzEzMjk4XC9IYm5FaGxKSDFGaVNMV1lUWmxQbHhZRTgzaUc2OTRNS204bkNTdGZQIiwiYXVkIjoiMTIyMDEwMDAwMDAwMDAwMTU2IiwiaHR0cHM6XC9cL3B1cmwuaW1zZ2xvYmFsLm9yZ1wvc3BlY1wvbHRpXC9jbGFpbVwvbWVzc2FnZV90eXBlIjoiTHRpUmVzb3VyY2VMaW5rUmVxdWVzdCIsImlzcy1vcmlnIjoiaHR0cHM6XC9cL2NhbnZhcy5pbnN0cnVjdHVyZS5jb20iLCJuYW1lIjoiRGFtaW9uIFlvdW5nIiwiZmFtaWx5X25hbWUiOiJZb3VuZyIsImVycm9ycyI6eyJlcnJvcnMiOnt9fX0.IMpOAhjBlIvISpFCLWrubxAB436rZC4HcrLR8Kn3POTJS3ZskgeM2QEohD96NtBlYdmuPJVhxzduJRw8duVFjGaGsCtF_DwwDEnzz7CMtOmxUHtff-fQ7H1ruyoYaBwPR56ouZNXjchBkXMUGmMRzpGPpVH_BsmqaFC9ngzAcB4weUlG5VEtFJNxR_85fQ9ZMZEY0KhA41uWXBK4Fbb5wa7Kn3k3O_wX0KicU1QRev8FlTgX6IKq6ErzObC68t9jL6Aeg9ppKCjWJPqEidIjnrg2IHqoeVQvuVj_L-UoPNUeuM_INMCxNLyroU1oCTLg91N_u6HD5TaIz3qbr1KMpw"; // Assuming this will be provided or managed elsewhere
 
     // Type guard to check if the error is of type Error
     const isError = (err: unknown): err is Error => {
@@ -111,13 +115,32 @@ function Chat() {
         // Transform messages to an array of objects with 'role' and 'content' keys
         const transformedMessages = messagesRef.current.map(msg => ({ role: msg.role, content: msg.content }));
 
+        let conversationIdToUpdate; //using in case conversationId isn't set in time
+        //now - do we have a conversationId?
+        if(!conversationId){
+            //create one
+            //create conversation
+            const newConversation: Conversation = createNewConversation();
+
+            const updatedConversations = [...conversations, newConversation];
+            setConversations(updatedConversations);
+            //saveConversationsToLocalStorage(updatedConversations);
+            setConversationId(newConversation.id);
+            conversationIdToUpdate = newConversation.id;
+        } else {
+            conversationIdToUpdate = conversationId;
+        }
+
         eventSourceRef.current = new CustomEventSource(`http://localhost/api/llm/chat`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`,
             },
-            body: JSON.stringify({ messages: transformedMessages }),
+            body: JSON.stringify({ 
+                messages: transformedMessages,
+                conversationId: conversationIdToUpdate
+            }),
         });
         
         eventSourceRef.current.addEventListener('message', (event: MessageEvent) => {
@@ -170,45 +193,7 @@ function Chat() {
         prevMessagesLengthRef.current = conversation.messages.length;
     };
 
-    /*const handleNewConversation = async () => {
-        saveCurrentConversation();
-        setConversationId(null);
-        setMessages([]);
-        messagesRef.current = [];
-        setMessage(''); // Clear the input textarea
-
-        try {
-            const response = await fetch('http://localhost/api/conversation', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-            });
-                if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
     
-            const result = await response.json();
-            if (result.status === 'success') {
-                const newConversation = {
-                    id: result.conversation_id,
-                    timestamp: Date.now(),
-                    messages: [],
-                };
-                const updatedConversations = [...conversations, newConversation];
-                setConversations(updatedConversations);
-                saveConversationsToLocalStorage(updatedConversations);
-                setConversationId(result.conversation_id);
-            }
-        } catch (error) {
-            if (isError(error)) {
-                setErrors(prevErrors => [...prevErrors, error.message]);
-            } else {
-                setErrors(prevErrors => [...prevErrors, 'An unknown error occurred.']);
-            }
-        }
-    };*/
 
     const handleNewConversation = async () => {
         await saveCurrentConversation();
@@ -216,7 +201,17 @@ function Chat() {
         setMessages([]);
         messagesRef.current = [];
         setMessage(''); // Clear the input textarea
-    
+
+        //create conversation
+        const newConversation: Conversation = createNewConversation()
+
+        const updatedConversations = [...conversations, newConversation];
+        setConversations(updatedConversations);
+        //saveConversationsToLocalStorage(updatedConversations);
+        setConversationId(newConversation.id);
+    };
+
+    const createNewConversation = async () => {
         try {
             const response = await fetch('http://localhost/api/conversation', {
                 method: 'POST',
@@ -237,10 +232,55 @@ function Chat() {
                     timestamp: Date.now(),
                     messages: [],
                 };
-                const updatedConversations = [...conversations, newConversation];
+                return newConversation;
+            }
+        } catch (error) {
+            if (isError(error)) {
+                setErrors(prevErrors => [...prevErrors, error.message]);
+            } else {
+                setErrors(prevErrors => [...prevErrors, 'An unknown error occurred.']);
+            }
+        }
+    }
+
+    const handleDeleteAllConversations = async () => {
+        const deletePromises = conversations.map(conversation =>
+            handleDeleteConversation(conversation.id)
+        );
+        
+        try {
+            await Promise.all(deletePromises);
+            localStorage.removeItem('conversations');
+            setConversations([]); // Clear the state so the UI updates accordingly
+        } catch (error) {
+            if (isError(error)) {
+                setErrors(prevErrors => [...prevErrors, error.message]);
+            } else {
+                setErrors(prevErrors => [...prevErrors, 'An unknown error occurred while deleting all conversations.']);
+            }
+        }
+    };
+    
+    // Ensure handleDeleteConversation is defined as an async function
+    const handleDeleteConversation = async (conversationId: string) => {
+        try {
+            const response = await fetch(`http://localhost/api/conversation/${conversationId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+    
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+    
+            const result = await response.json();
+            if (result.status === 'success') {
+                const updatedConversations = conversations.filter(conv => conv.id !== conversationId);
                 setConversations(updatedConversations);
-                saveConversationsToLocalStorage(updatedConversations);
-                setConversationId(result.conversation_id);
+                //saveConversationsToLocalStorage(updatedConversations);
             }
         } catch (error) {
             if (isError(error)) {
@@ -250,15 +290,11 @@ function Chat() {
             }
         }
     };
+    
 
-    const handleDeleteAllConversations = () => {
-        localStorage.removeItem('conversations');
-        setConversations([]); // Clear the state so the UI updates accordingly
-    };
-
-    const saveConversationsToLocalStorage = (updatedConversations: Conversation[]) => {
+    /*const saveConversationsToLocalStorage = (updatedConversations: Conversation[]) => {
         localStorage.setItem('conversations', JSON.stringify(updatedConversations));
-    };
+    };*/
 
     const saveCurrentConversation = async () => {
         if (messages.length === 0) return;
@@ -269,13 +305,13 @@ function Chat() {
             messages,
         };
     
-        const updatedConversations = conversationId 
+        /*const updatedConversations = conversationId 
             ? conversations.map(conv => conv.id === conversation.id ? conversation : conv)
             : [...conversations, conversation];
     
         updatedConversations.sort((a, b) => b.timestamp - a.timestamp); // Sort by timestamp in descending order
         setConversations(updatedConversations);
-        saveConversationsToLocalStorage(updatedConversations);
+        saveConversationsToLocalStorage(updatedConversations);*/
     
         if (!conversationId) {
             setConversationId(conversation.id);
@@ -308,30 +344,6 @@ function Chat() {
         }
     };
     
-    /*const saveCurrentConversation = () => {
-        if (messages.length === 0) return;
-    
-        const conversation = {
-          id: conversationId || `${Date.now()}`,
-          timestamp: Date.now(),
-          messages,
-        };
-
-        const updatedConversations = conversationId 
-        ? conversations.map(conv => conv.id === conversation.id ? conversation : conv)
-        : [...conversations, conversation];
-
-        updatedConversations.sort((a, b) => b.timestamp - a.timestamp); // Sort by timestamp in descending order
-        setConversations(updatedConversations);
-        saveConversationsToLocalStorage(updatedConversations);
-
-        if (!conversationId) {
-        setConversationId(conversation.id);
-        }
-
-        console.log(conversation.id);
-    };*/
-
     const fetchConversations = async () => {
         try {
             const response = await fetch('http://localhost/api/conversations', {
@@ -348,13 +360,13 @@ function Chat() {
 
             const result = await response.json();
             if (result.status === 'success') {
-                const storedConversations = JSON.parse(localStorage.getItem('conversations') || '[]');
-                const updatedConversations = result.conversations.map((conv: Conversation) => {
-                    const localConv = storedConversations.find((c: Conversation) => c.id === conv.id);
-                    return localConv ? { ...conv, ...localConv } : conv;
+                //const storedConversations = JSON.parse(localStorage.getItem('conversations') || '[]');
+                const updatedConversations = result.conversations.map((conv: ConversationDataFromAPI) => {
+                    const timestamp = new Date(conv.created_at).getTime(); // Convert to numeric timestamp
+                    return { ...conv, timestamp };
                 });
                 setConversations(updatedConversations);
-                saveConversationsToLocalStorage(updatedConversations);
+                //saveConversationsToLocalStorage(updatedConversations);
             }
         } catch (error) {
             if (isError(error)) {
