@@ -18,7 +18,7 @@ class VerifyJWTToken
 {
     //protected $issuer = 'https://lti.canvas.ox.ac.uk';
     //protected $audience = '122010000000000156';
-    protected $jwksUrl = 'https://lti.canvas.ox.ac.uk/.well-known/jwks.json';
+    protected $jwksUrl = 'https://tools-dev.canvas.ox.ac.uk/.well-known/jwks.json';  //not sure can read this from audinece table as don't know jwt 'safe' - maybe ask Matthew
 
     protected $audienceService;
     protected $userService;
@@ -66,13 +66,6 @@ class VerifyJWTToken
             } else if ($decodedToken->aud !== $configured_aud) {
                 return response()->json(['error' => 'Invalid audience'], Response::HTTP_UNAUTHORIZED);
             }
-            /*if ($decodedToken->iss !== $this->issuer) {
-                return response()->json(['error' => 'Invalid issuer'], Response::HTTP_UNAUTHORIZED);
-            }
-
-            if ($decodedToken->aud !== $this->audience) {
-                return response()->json(['error' => 'Invalid audience'], Response::HTTP_UNAUTHORIZED);
-            }*/
 
             $now = time();
             if ($decodedToken->exp < $now || $decodedToken->iat > $now) {
@@ -125,11 +118,6 @@ class VerifyJWTToken
             $context = $this->contextService->createOrUpdateContext($jwt_context_id, $jwt_context_title, config('jwt.aud_id'));
 
             $context_user = $this->userService->setRoleInContext($jwt_is_instructor);
-
-            //NOW CHECK WHETHER WE HAVE AN LLM DEFINED ON OUR CONTEXT:
-            //-if so, allow chat request
-            //-if not, tell front-end to show config screen
-
 
             return $next($request);
         } catch (\Exception $e) {

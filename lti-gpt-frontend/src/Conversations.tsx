@@ -44,8 +44,10 @@ const Conversations = ({ conversations, onSelectConversation, onDeleteAllConvers
   
     const formatTimestamp = (timestamp: number) => {
       const date = new Date(timestamp);
-      return date.toLocaleString();
-    };
+      const datePart = date.toLocaleDateString(); // Get the date part
+      const timePart = date.toLocaleTimeString(); // Get the time part
+      return `${datePart} - ${timePart}`; // Join with a hyphen
+  };
   
     return (
       <div style={{ width: '250px', borderRight: '1px solid #ddd', padding: '10px', height: 'calc(100% - 90px)' }}>

@@ -11,5 +11,5 @@ export interface Conversation {
 
 export interface ConversationDataFromAPI {
     id: string;
-    created_at: string;
+    updated_at: string;
 }  

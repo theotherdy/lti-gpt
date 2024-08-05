@@ -4,7 +4,10 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 
+use Illuminate\Support\Facades\Log;
+
 use App\Models\Conversation;
+use App\Models\Message;
 
 class ConversationController extends Controller
 {
@@ -16,8 +19,8 @@ class ConversationController extends Controller
         $contextUserId = config('jwt.context_user_id');
 
         $conversations = Conversation::where('context_user_id', $contextUserId)
-                                    ->orderBy('created_at', 'desc')
-                                    ->get(['id', 'created_at']);
+                                    ->orderBy('updated_at', 'desc')
+                                    ->get(['id', 'updated_at']);
 
         return response()->json([
             'status' => 'success',
@@ -38,7 +41,7 @@ class ConversationController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'conversation_id' => $conversation->id,
+            'conversation' => $conversation,
         ]);
     }
 
@@ -47,7 +50,24 @@ class ConversationController extends Controller
      */
     public function show(string $id)
     {
-        //
+        $contextUserId = config('jwt.context_user_id');
+
+        $conversation = Conversation::where('id', $id)
+                                    ->where('context_user_id', $contextUserId)
+                                    ->with('messages')
+                                    ->first();
+
+        if (!$conversation) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Conversation not found or not accessible for this user',
+            ], 404);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'conversation' => $conversation,
+        ]);
     }
 
     /**
@@ -65,11 +85,40 @@ class ConversationController extends Controller
             ], 404);
         }
 
+        // Update the conversation with request data
         $conversation->update($request->all());
+
+        // Check if request has messages and save them
+        if ($request->has('messages')) {
+            $messages = $request->input('messages');
+
+            
+
+            foreach ($messages as $messageData) {
+                Log::debug($messageData);
+                $message = new Message([
+                    'role' => $messageData['role'],
+                    'content' => $messageData['content'],
+                    'conversation_id' => $conversation->id,
+                    'token_count' => 0 // If this field is provided in the request
+                ]);
+
+                $message->save();
+            }
+
+            // Touch the conversation to update its updated_at timestamp
+            $conversation->touch();
+        }
+
+        // Get updated array of conversations for the context user
+        $conversations = Conversation::where('context_user_id', $contextUserId)
+                                ->orderBy('updated_at', 'desc')
+                                ->with('messages')
+                                ->get();
 
         return response()->json([
             'status' => 'success',
-            'conversation' => $conversation,
+            'conversations' => $conversations,
         ]);
     }
 
@@ -88,6 +137,8 @@ class ConversationController extends Controller
             ], 404);
         }
 
+        // Soft delete the conversation and its messages
+        $conversation->messages()->delete();
         $conversation->delete();
 
         return response()->json([
@@ -95,4 +146,30 @@ class ConversationController extends Controller
             'message' => 'Conversation deleted successfully',
         ]);
     }
+
+    /* Not sure we want this 
+    public function restore(string $id)
+    {
+        $contextUserId = config('jwt.context_user_id');
+        $conversation = Conversation::withTrashed()
+            ->where('id', $id)
+            ->where('context_user_id', $contextUserId)
+            ->first();
+
+        if (!$conversation) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Conversation not found or not accessible for this user',
+            ], 404);
+        }
+
+        // Restore the conversation and its messages
+        $conversation->restore();
+        $conversation->messages()->withTrashed()->restore();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Conversation restored successfully',
+        ]);
+    }*/
 }

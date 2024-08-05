@@ -1,3 +1,5 @@
+//class to deal with streamed messages from comletions api
+
 export class CustomEventSource { //created by ChatGPT
     private url: string;
     private options: RequestInit;

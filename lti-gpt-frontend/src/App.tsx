@@ -12,10 +12,12 @@ import Chat from './Chat';
 function App() {
 
   const [jwt, setJwt] = useState(null)
+  const [rawJwt, setRawJwt] = useState(null)
   const [comInstructureBrandConfigJsonUrl, setComInstructureBrandConfigJsonUrl] = useState(null)
   const [canvasUserPrefersHighContrast, setCanvasUserPrefersHighContrast] = useState(null)
 
-  const updateToken = (receivedToken) => {
+  const updateToken = (receivedToken: string) => {
+    setRawJwt(receivedToken);
     const jwt = jwtDecode(receivedToken)
     setJwt(jwt);
     setComInstructureBrandConfigJsonUrl(jwt['https://purl.imsglobal.org/spec/lti/claim/custom'].com_instructure_brand_config_json_url)
@@ -26,7 +28,7 @@ function App() {
     <LtiTokenRetriever handleJwt={updateToken}>
       <LtiApplyTheme url={comInstructureBrandConfigJsonUrl} highContrast={canvasUserPrefersHighContrast}>
         <View as='div' padding='small'>
-          <Chat />
+          <Chat token={rawJwt}/>
         </View>
       </LtiApplyTheme>
     </LtiTokenRetriever>

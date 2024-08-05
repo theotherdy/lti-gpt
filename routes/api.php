@@ -14,8 +14,10 @@ Route::middleware([VerifyJwtToken::class])->group(function () {
     Route::get('llm/show-current', [LlmController::class, 'showCurrent']);
     Route::post('llm/store', [LlmController::class, 'store']);
     Route::post('llm/chat', [LlmController::class, 'chat']);
-    //Route::get('messages', [MessageController::class, 'index']);
+    
     Route::post('/conversation', [ConversationController::class, 'store']);
     Route::get('/conversations', [ConversationController::class, 'index']);
+    Route::get('/conversation/{id}', [ConversationController::class, 'show']);
     Route::put('/conversation/{id}', [ConversationController::class, 'update']);
+    Route::delete('/conversation/{id}', [ConversationController::class, 'destroy']);
 });
