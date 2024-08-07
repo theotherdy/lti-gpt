@@ -13,21 +13,16 @@ use App\Models\Context;
 
 class LlmService {
     
-    public function getCurrentLlm()
+    /*public function getCurrentLlm()
     {
         $context = Context::find(config('jwt.context_id'));
-        
-        /*$llm = null;
-        if($context && $context->llm()->exists()) {
-            $llm = $context->llm();
-        }*/
         return $context;
-    }
+    }*/
 
     /**
      * Store the provided API key for 'ChatGPT' in the database and update the context.
      */
-    public function storeApiKey(string $apiKey)
+    /*public function storeApiKey(string $apiKey)
     {
         // Retrieve the current context ID from the configuration
         $contextId = config('jwt.context_id');
@@ -80,7 +75,7 @@ class LlmService {
                 'message' => 'Failed to update API token for LLM.'
             ];
         }
-    }
+    }*/
 
     /**
      * Respond to $messages, using $conversationId to work out whetehr this is an ongoing or a new conversation to help with working out tokens sent each way
@@ -111,7 +106,10 @@ class LlmService {
 
         // Retrieve the API key based on the context
         $context = Context::find($contextId);
-        if (!$context || !$context->llm) {
+
+
+        //if (!$context || !$context->llm) {
+        if (!$context || !$context->API_key) {
             Log::error('API key not found for context.');
             echo json_encode([
                 'status' => 'failure',
@@ -120,7 +118,7 @@ class LlmService {
             return;
         }
 
-        $apiKey = $context->llm->API_key;
+        $apiKey = $context->API_key;
         
         $client = new Client();
 

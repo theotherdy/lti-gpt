@@ -15,6 +15,8 @@ return new class extends Migration
             $table->id();
             $table->string('lms_context_id');
             $table->string('lms_context_title')->nullable();
+            $table->string('API_key')->nullable();  //ie allow/require one API key per context
+            $table->text('system_prompt')->nullable();  //for priming the LLM
             $table->foreignId('llm_id')->nullable()->constrained();
             $table->foreignId('audience_id')->nullable()->constrained();
             $table->timestamps();

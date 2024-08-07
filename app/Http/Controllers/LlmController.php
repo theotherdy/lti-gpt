@@ -33,7 +33,7 @@ class LlmController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    /*public function store(Request $request)
     {
         // Validate the request payload
         $validatedData = $request->validate([
@@ -55,12 +55,12 @@ class LlmController extends Controller
                 'message' => $result['message']
             ], 500);
         }
-    }
+    }*/
 
     /**
      * Display the specified resource.
      */
-    public function showCurrent()
+    /*public function showCurrent()
     {
         //Log::debug('I am here');
         
@@ -82,7 +82,6 @@ class LlmController extends Controller
             ]); 
         } else {
             //Log::debug('no llm');
-            /*Log::debug('I dont have llm');*/
             return response()->json([
                 'status' => 'failure',
                 'data' => $context,
@@ -93,7 +92,7 @@ class LlmController extends Controller
             ]); 
         }
         
-    }
+    }*/
 
     /**
      * Display the specified resource.

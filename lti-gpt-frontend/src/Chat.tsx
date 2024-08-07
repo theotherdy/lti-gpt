@@ -27,7 +27,9 @@ interface ChatProps {
 const Chat: React.FC<ChatProps> = ({token}) => {
     //context and api key
     const [apiKey, setApiKey] = useState<string>('');
-    const [isLlmSet, setIsLlmSet] = useState(true); //default to true to avoid flickering up warning message
+    const [systemPrompt, setSystemPrompt] = useState<string>('');
+    const [isAPIKeySet, setIsAPIKeySet] = useState(true); //default to true to avoid flickering up warning message
+    const [contextId, setContextId] = useState<string>(''); 
     const [contextTitle, setContextTitle] = useState<string>(''); 
 
     //variables
@@ -57,13 +59,13 @@ const Chat: React.FC<ChatProps> = ({token}) => {
     };
 
     const handleApiKeyPost = async () => {
-        const res = await fetch('http://localhost/api/llm/store', {
-            method: 'POST',
+        const res = await fetch(`http://localhost/api/context/${contextId}`, {
+            method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`,
             },
-            body: JSON.stringify({ apiKey: apiKey }),
+            body: JSON.stringify({ apiKey: apiKey, systemPrompt: systemPrompt }),
         });
     
         if (!res.ok) {
@@ -84,15 +86,16 @@ const Chat: React.FC<ChatProps> = ({token}) => {
             throw new Error('Error storing API key');
         }
         //console.log(data.data.llm_id);
-        return data.data.llm_id
+        return data.context
     };
 
     const handleApiSubmit = async () => {
         try {
-            const llmId = await handleApiKeyPost();
-            if(llmId){
-                setIsLlmSet(true);
-                console.log('llm is set');
+            const context = await handleApiKeyPost();
+            if(context){
+                setSystemPrompt(context.system_prompt);
+                setIsAPIKeySet(true);
+                console.log('API key is set');
             }
             
         } catch (error) {
@@ -148,6 +151,7 @@ const Chat: React.FC<ChatProps> = ({token}) => {
         if (!message.trim()) return;
     
         const newMessage: Message = { role: 'user', content: message };
+        const systemMessage: Message = { role: 'system', content: systemPrompt }; // Add system message
         
         // Create or get the current conversation first
         const currentConversation = await getOrCreateCurrentConversation();
@@ -165,9 +169,11 @@ const Chat: React.FC<ChatProps> = ({token}) => {
         if (eventSourceRef.current) {
             eventSourceRef.current.close();
         }
+
+        const messagesToSend: Message[] = [systemMessage, ...updatedMessages]; // Include system message
     
         // Transform messages to an array of objects with 'role' and 'content' keys
-        const transformedMessages = updatedMessages.map(msg => ({ role: msg.role, content: msg.content }));
+        const transformedMessages = messagesToSend.map(msg => ({ role: msg.role, content: msg.content }));
     
         try {
             eventSourceRef.current = new CustomEventSource(`http://localhost/api/llm/chat`, {
@@ -417,7 +423,7 @@ const Chat: React.FC<ChatProps> = ({token}) => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const response = await fetch('http://localhost/api/llm/show-current', {
+                const response = await fetch('http://localhost/api/context/show-current', {
                     method: 'GET',
                     headers: {
                         'Content-Type': 'application/json',
@@ -435,9 +441,12 @@ const Chat: React.FC<ChatProps> = ({token}) => {
 
                 const result = await response.json();
                 //should always contain context as that is passed in token
+                setContextId(result.data.id)
+                setSystemPrompt(result.data.system_prompt);
                 setContextTitle(result.data.lms_context_title);
-                if (result.status !== 'success') {
-                    setIsLlmSet(false);
+                //setIsAPIKeySet(false);
+                if (result.status !== 'success' || result.data.API_key == '') {
+                    setIsAPIKeySet(false);
                 }
             } catch (error: unknown) {
                 if (isError(error)) {
@@ -487,23 +496,32 @@ const Chat: React.FC<ChatProps> = ({token}) => {
             background="primary"
             position="relative"
         >
-        {!isLlmSet ? (
+        {!isAPIKeySet ? (
             <>
                 <Alert variant="warning" margin="small">
-                    No ChatGPT API key set for: {contextTitle}. Please enter a key below:
+                    No ChatGPT API key set for: {contextTitle}. Please enter a key (and optional system prompt) below.
                 </Alert>
                 <View
                     padding="small"
-                    textAlign="center"
                     as="div"
                     >
                     <form onSubmit={(e) => { e.preventDefault(); handleApiSubmit(); }}>
                         <TextInput
+                            isRequired={true}
                             value={apiKey}
-                            display="inline-block"
-                            renderLabel={<ScreenReaderContent>API Key</ScreenReaderContent>}
+                            renderLabel="API Key"
                             placeholder="ChatGPT API Key"
                             onChange={(e) => setApiKey(e.target.value)}
+                        />
+                        <br />
+                        <TextArea
+                            value={systemPrompt}
+                            onChange={(e) => setSystemPrompt(e.target.value)}
+                            placeholder="Type any system prompt (general instructions for how you would like the LLM to behave) here..."
+                            label="System Prompt"
+                            maxHeight='33vh'
+                            height='64px'
+                            style={{ flexGrow: 1, marginRight: '0.5rem', maxHeight: '33vh', overflowY: 'auto', width: '100%' }}
                         />
                         <Button margin="xx-small" type="submit">
                             Submit

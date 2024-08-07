@@ -30,4 +30,10 @@ class ContextService {
 
         return $context;  
     }
+    
+    public function getCurrentContext()
+    {
+        $context = Context::find(config('jwt.context_id'));
+        return $context;
+    }
 }
