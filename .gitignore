@@ -6,11 +6,13 @@
 /storage/*.key
 /vendor
 .env
+.env.prod
 .env.backup
 .env.production
 .phpunit.result.cache
 Homestead.json
 Homestead.yaml
+docker-compose.prod.yml
 auth.json
 npm-debug.log
 yarn-error.log

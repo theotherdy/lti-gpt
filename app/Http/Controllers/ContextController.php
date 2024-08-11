@@ -38,11 +38,17 @@ class ContextController extends Controller
     public function showCurrent()
     {
         $context = $this->contextService->getCurrentContext();
+        $isSetAPIKey = false;
+        if($context->API_key){
+            $isSetAPIKey = true; 
+        }
 
         if($context){
             return response()->json([
                 'status' => 'success',
-                'data' => $context,
+                'context' => $context,
+                'is_instructor' => config('jwt.is_instructor'),
+                'is_API_key_set' => $isSetAPIKey,
                 'error' => [
                     'type' => ''
                 ]
@@ -50,7 +56,9 @@ class ContextController extends Controller
         } else {
             return response()->json([
                 'status' => 'failure',
-                'data' => $context,
+                'context' => $context,
+                'is_instructor' => config('jwt.is_instructor'),
+                'is_API_key_set' => $isSetAPIKey,
                 'error' => [
                     'type' => '',
                     'message' => 'No context available',
@@ -98,9 +106,19 @@ class ContextController extends Controller
         
         $context->save();
 
+        $isSetAPIKey = false;
+        if($context->API_key){
+            $isSetAPIKey = true; 
+        }
+
         return response()->json([
             'status' => 'success',
             'context' => $context,
+            'is_instructor' => config('jwt.is_instructor'),
+            'is_API_key_set' => $isSetAPIKey,
+            'error' => [
+                'type' => ''
+            ]
         ]);
     }
 

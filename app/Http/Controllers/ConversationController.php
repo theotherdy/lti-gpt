@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 use App\Models\Conversation;
+use App\Models\ContextUser;
 use App\Models\Message;
 
 class ConversationController extends Controller
@@ -88,23 +89,39 @@ class ConversationController extends Controller
         // Update the conversation with request data
         $conversation->update($request->all());
 
+        // Initialize token counters
+        $tokensSent = 0;
+        $tokensReceived = 0;
+
         // Check if request has messages and save them
         if ($request->has('messages')) {
             $messages = $request->input('messages');
 
-            
-
             foreach ($messages as $messageData) {
                 Log::debug($messageData);
+
+                // Create and save the message
                 $message = new Message([
                     'role' => $messageData['role'],
                     'content' => $messageData['content'],
+                    'tokens' => $messageData['tokens'],
                     'conversation_id' => $conversation->id,
-                    'token_count' => 0 // If this field is provided in the request
                 ]);
 
                 $message->save();
+
+                // Accumulate tokens based on the role
+                if ($messageData['role'] === 'user') {
+                    $tokensSent += $messageData['tokens'];
+                } elseif ($messageData['role'] === 'assistant') {
+                    $tokensReceived += $messageData['tokens'];
+                }
             }
+
+            // Update the conversation's tokens_sent and tokens_received fields
+            $conversation->tokens_sent = ($conversation->tokens_sent ?? 0) + $tokensSent;
+            $conversation->tokens_received = ($conversation->tokens_received ?? 0) + $tokensReceived;
+            $conversation->save();
 
             // Touch the conversation to update its updated_at timestamp
             $conversation->touch();
@@ -146,6 +163,57 @@ class ConversationController extends Controller
             'message' => 'Conversation deleted successfully',
         ]);
     }
+
+    public function getUserConversationsSummary()
+{
+    $contextId = config('jwt.context_id');
+
+    // Fetch users who are not instructors and their conversation summaries
+    $userConversations = ContextUser::with('user')
+        ->where('context_id', $contextId)
+        ->where(function ($query) {
+            $query->where('is_instructor', false)
+                  ->orWhereNull('is_instructor');
+        })
+        ->with(['conversations' => function ($query) {
+            $query->select('id', 'context_user_id', 'tokens_sent', 'tokens_received')
+                ->withCount(['messages as messages_sent_count' => function ($query) {
+                    $query->where('role', 'user');
+                }])
+                ->withCount(['messages as messages_received_count' => function ($query) {
+                    $query->where('role', 'assistant');
+                }])
+                ->with(['messages' => function ($query) {
+                    $query->selectRaw('conversation_id, SUM(tokens) as total_tokens')
+                        ->groupBy('conversation_id');
+                }]);
+        }])
+        ->get()
+        ->map(function ($contextUser) {
+            return [
+                'id' => $contextUser->id,
+                'user' => [
+                    'id' => $contextUser->user->id,
+                    'first_name' => $contextUser->user->first_name,
+                    'last_name' => $contextUser->user->last_name
+                ],
+                'conversations' => $contextUser->conversations->map(function ($conversation) {
+                    return [
+                        'id' => $conversation->id,
+                        'messages_sent_count' => $conversation->messages_sent_count ?? 0,
+                        'messages_received_count' => $conversation->messages_received_count ?? 0,
+                        'tokens_sent' => $conversation->tokens_sent ?? 0,
+                        'tokens_received' => $conversation->tokens_received ?? 0,
+                    ];
+                })
+            ];
+        });
+
+    return response()->json([
+        'status' => 'success',
+        'data' => $userConversations
+    ]);
+}
 
     /* Not sure we want this 
     public function restore(string $id)

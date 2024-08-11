@@ -23,6 +23,10 @@ class Context extends Model
         //'password',
     ];
 
+    protected $hidden = [
+        'API_key',
+    ];
+
     /*public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class)->withPivot('is_instructor');

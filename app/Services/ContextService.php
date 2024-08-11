@@ -8,6 +8,9 @@ use App\Models\Context;
 use App\Models\Audience;
 
 class ContextService {
+    /*
+    Function called by VerifyJwtToken.php
+    */
     public function createOrUpdateContext(String $jwt_context_id, String $jwt_context_title, Int $audience_id)
     {
         $context = Context::updateOrCreate(

@@ -14,6 +14,8 @@ return new class extends Migration
         Schema::create('conversations', function (Blueprint $table) {
             $table->id();
             $table->foreignId('context_user_id')->constrained();
+            $table->integer('tokens_sent')->nullable();
+            $table->integer('tokens_received')->nullable();
             $table->timestamps();
             $table->softDeletes();
         });

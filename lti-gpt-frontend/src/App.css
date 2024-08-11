@@ -4,6 +4,7 @@
   /*padding: 2rem;*/
   /*text-align: center;*/
   width: 100%;
+  /*white-space: normal!important;*/
 }
 
 .chat-drawer-tray-header {
@@ -34,4 +35,18 @@
   display: flex;
   gap: 10px;
   z-index: 1000; /* Ensure it floats above other content */
+}
+
+.chat-message {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.chat-message p {
+  margin: 0;
+}
+
+.message-content {
+  flex-grow: 1;
 }

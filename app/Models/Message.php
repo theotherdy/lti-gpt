@@ -18,7 +18,7 @@ class Message extends Model
      * @var array<int, string>
      */
     protected $fillable = [
-        'token_count',
+        'tokens',
         'content',
         'role',
         'conversation_id',

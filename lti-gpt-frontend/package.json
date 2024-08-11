@@ -1,21 +1,23 @@
 {
   "name": "lti-gpt-frontend",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "tsc && vite build --base=./",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },
   "dependencies": {
     "@instructure/ui": "^9",
-    "axios": "^1.6.8",
     "@oxctl/ui-lti": "^1.5.1",
+    "axios": "^1.6.8",
     "jwt-decode": "^3.1.2",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "react-markdown": "^9.0.1",
+    "tiktoken": "^1.0.15"
   },
   "devDependencies": {
     "@types/react": "^18.2.66",

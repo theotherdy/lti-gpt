@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('messages', function (Blueprint $table) {
             $table->id();
-            $table->integer('token_count');
+            $table->integer('tokens');
             $table->text('content');
             $table->enum('role', ['user', 'assistant']);
             $table->foreignId('conversation_id')->constrained()->onDelete('cascade');

@@ -1,6 +1,7 @@
 export interface Message {
     role: 'user' | 'assistant' | 'system';
     content: string;
+    tokens: number;
 }
 
 export interface Conversation {
@@ -13,3 +14,4 @@ export interface ConversationDataFromAPI {
     id: string;
     updated_at: string;
 }  
+

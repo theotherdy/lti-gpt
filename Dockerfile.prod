@@ -1,0 +1,18 @@
+FROM webdevops/php-nginx:8.2-alpine
+# These ENV variables refer to options in webdevops/php-nginx - https://dockerfile.readthedocs.io/en/latest/content/DockerImages/dockerfiles/php-nginx.html
+ENV WEB_DOCUMENT_ROOT=/app/public
+ENV PHP_DISMOD=bz2,calendar,exiif,ffi,intl,gettext,ldap,imap,pdo_pgsql,pgsql,soap,sockets,sysvmsg,sysvsm,sysvshm,shmop,xsl,zip,gd,apcu,vips,yaml,imagick,mongodb,amqp
+# sets working directory for any future actions
+WORKDIR /app
+# ie copying from wherever docker is run to WORKDIR
+COPY . .  
+COPY composer.lock composer.lock
+COPY .env.prod .env
+# recommended optimization from: https://laravel.com/docs/9.x/deployment
+RUN composer install --no-interaction --optimize-autoloader --no-dev
+RUN php artisan key:generate
+RUN php artisan config:cache
+RUN php artisan route:cache
+RUN php artisan view:cache
+# Ensure all of our files are owned by the same user and group.
+RUN chown -R application:application .

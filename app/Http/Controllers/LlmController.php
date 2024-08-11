@@ -30,69 +30,6 @@ class LlmController extends Controller
         //
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    /*public function store(Request $request)
-    {
-        // Validate the request payload
-        $validatedData = $request->validate([
-            'apiKey' => 'required|string',
-        ]);
-
-        // Call the service method to store the API key
-        $result = $this->llmService->storeApiKey($validatedData['apiKey']);
-
-        if ($result['status'] === 'success') {
-            return response()->json([
-                'status' => 'success',
-                'message' => 'API key stored and context updated successfully.',
-                'data' => $result['data']
-            ], 200);
-        } else {
-            return response()->json([
-                'status' => 'failure',
-                'message' => $result['message']
-            ], 500);
-        }
-    }*/
-
-    /**
-     * Display the specified resource.
-     */
-    /*public function showCurrent()
-    {
-        //Log::debug('I am here');
-        
-        $context = $this->llmService->getCurrentLlm();
-
-        //Log::debug('I am now here');
-
-        //Log::debug(print_r($llm));
-
-        if($context->llm()->exists()){
-            //Log::debug('I have llm');
-            //Log::debug(print_r($llm));
-            return response()->json([
-                'status' => 'success',
-                'data' => $context,
-                'error' => [
-                    'type' => ''
-                ]
-            ]); 
-        } else {
-            //Log::debug('no llm');
-            return response()->json([
-                'status' => 'failure',
-                'data' => $context,
-                'error' => [
-                    'type' => '',
-                    'message' => 'No Llm set for this context',
-                ]
-            ]); 
-        }
-        
-    }*/
 
     /**
      * Display the specified resource.

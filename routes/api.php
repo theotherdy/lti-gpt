@@ -12,8 +12,8 @@ use App\Http\Middleware\VerifyJwtToken; //custom middleware based on Lcobucci\JW
 
 
 Route::middleware([VerifyJwtToken::class])->group(function () {
-    Route::get('llm/show-current', [LlmController::class, 'showCurrent']);
-    Route::post('llm/store', [LlmController::class, 'store']);
+    //Route::get('llm/show-current', [LlmController::class, 'showCurrent']);
+    //Route::post('llm/store', [LlmController::class, 'store']);
     Route::post('llm/chat', [LlmController::class, 'chat']);
 
     Route::get('context/show-current', [ContextController::class, 'showCurrent']);
@@ -24,4 +24,6 @@ Route::middleware([VerifyJwtToken::class])->group(function () {
     Route::get('/conversation/{id}', [ConversationController::class, 'show']);
     Route::put('/conversation/{id}', [ConversationController::class, 'update']);
     Route::delete('/conversation/{id}', [ConversationController::class, 'destroy']);
+
+    Route::get('/conversations/summary', [ConversationController::class, 'getUserConversationsSummary']);
 });

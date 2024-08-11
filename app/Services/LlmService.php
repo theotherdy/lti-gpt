@@ -13,70 +13,6 @@ use App\Models\Context;
 
 class LlmService {
     
-    /*public function getCurrentLlm()
-    {
-        $context = Context::find(config('jwt.context_id'));
-        return $context;
-    }*/
-
-    /**
-     * Store the provided API key for 'ChatGPT' in the database and update the context.
-     */
-    /*public function storeApiKey(string $apiKey)
-    {
-        // Retrieve the current context ID from the configuration
-        $contextId = config('jwt.context_id');
-
-        if (!$contextId) {
-            Log::error('Context ID not found in configuration.');
-            return [
-                'status' => 'failure',
-                'message' => 'Context ID not found in configuration.'
-            ];
-        }
-
-        
-        // Create a new Llm record if it doesn't exist
-        $llm = new Llm();
-        $llm->name = 'ChatGPT';
-        // Set the API_token field
-        $llm->API_key = $apiKey;
-
-        if ($llm->save()) {
-            // Update the context with the new llm_id
-            $context = Context::find($contextId);
-            if ($context) {
-                $context->llm_id = $llm->id;
-                if ($context->save()) {
-                    return [
-                        'status' => 'success',
-                        'data' => [
-                            'llm_id' => $llm->id
-                        ]
-                    ];
-                } else {
-                    Log::error('Failed to update context with new LLM ID.');
-                    return [
-                        'status' => 'failure',
-                        'message' => 'Failed to update context with new LLM ID.'
-                    ];
-                }
-            } else {
-                Log::error('Context not found for given context ID.');
-                return [
-                    'status' => 'failure',
-                    'message' => 'Context not found for given context ID.'
-                ];
-            }
-        } else {
-            Log::error('Failed to update API token for LLM.');
-            return [
-                'status' => 'failure',
-                'message' => 'Failed to update API token for LLM.'
-            ];
-        }
-    }*/
-
     /**
      * Respond to $messages, using $conversationId to work out whetehr this is an ongoing or a new conversation to help with working out tokens sent each way
      */
@@ -123,6 +59,8 @@ class LlmService {
         $client = new Client();
 
         try {
+            ob_start(); // Start output buffering
+
             $response = $client->post('https://api.openai.com/v1/chat/completions', [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $apiKey,
@@ -132,6 +70,7 @@ class LlmService {
                     'model' => 'gpt-4o',
                     'messages' => $messages,
                     'stream' => true,
+                    'stream_options' => ["include_usage" => true],
                 ],
                 'stream' => true, // Enable streaming
             ]);
