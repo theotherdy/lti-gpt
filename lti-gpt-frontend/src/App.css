@@ -50,3 +50,7 @@
 .message-content {
   flex-grow: 1;
 }
+
+.message-content p {
+  margin: 10px 0 0 0; /* Adds spacing between paragraphs */
+}

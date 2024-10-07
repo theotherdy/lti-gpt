@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 
 import ReactMarkdown from 'react-markdown';
+import { PulseLoader } from 'react-spinners';
 //import { encoding_for_model } from 'tiktoken';
 
 import { Alert } from '@instructure/ui-alerts';
@@ -44,6 +45,7 @@ const Chat: React.FC<ChatProps> = ({token}) => {
     const [messages, setMessages] = useState<Message[]>([]);
     const messagesRef = useRef<Message[]>([]); // Ref to hold the messages array which will be current when sent to the API
     const prevMessagesLengthRef = useRef<number>(messages.length); //used to chcek if lenbgth of conversation has increased
+    const [isTyping, setIsTyping] = useState<boolean>(false); // New state for typing indicator
 
     // Initialize the tokenizer for the specific model (e.g., GPT-4)
     //const tokenizer = encoding_for_model("gpt-4");
@@ -58,6 +60,8 @@ const Chat: React.FC<ChatProps> = ({token}) => {
     const [drawerOpen, setDrawerOpen] = useState(true);
     const responseContainerRef = useRef<HTMLDivElement | null>(null); //A reference to the div showing the responses. It allows scrolling to the bottom when new responses come in.
     const eventSourceRef = useRef<CustomEventSource | null>(null);//event source
+
+    const isStreamFinishedRef = useRef(false); // Track if the streaming from the assistant is complete
 
     //const baseAPIUrl = "https://learntech.medsci.ox.ac.uk/lti-gpt-api/";
     const baseAPIUrl = "http://localhost/";
@@ -184,7 +188,9 @@ const Chat: React.FC<ChatProps> = ({token}) => {
         setMessages(updatedMessages);
         messagesRef.current = updatedMessages;
         setMessage(''); // Clear the input textarea
-    
+        setIsTyping(true); // Start typing indicator
+        isStreamFinishedRef.current = false;
+            
         // Reset partial message for new input
         partialAssistantMessageRef.current = '';
 
@@ -222,35 +228,64 @@ const Chat: React.FC<ChatProps> = ({token}) => {
     
             eventSourceRef.current.addEventListener('message', (event: MessageEvent) => {
                 try {
-                    //console.log(event);
-                    if (event.data.trim() === "[DONE]") {
-                        setMessages(prevMessages => {
-                            const newMessages: Message[] = [...prevMessages, { role: 'assistant', content: partialAssistantMessageRef.current, tokens: completionTokens}];
-                            messagesRef.current = newMessages; // Update messagesRef
-                            return newMessages;
-                        });
-                        return;
-                    }
-    
-                    const parsedData = JSON.parse(event.data.trim());
+                  if (event.data.trim() === "[DONE]") {
+                    //console.log("Final assistant message:", partialAssistantMessageRef.current); // Log the final message
+                    isStreamFinishedRef.current = true; // Mark stream as finished
+                    // When API call is done, finalize the assistant's message and stop typing
+                    setMessages((prevMessages) => {
+                      const newMessages = prevMessages.map(message =>
+                        message.role === 'assistant' && message.content === partialAssistantMessageRef.current
+                          ? { ...message, content: partialAssistantMessageRef.current, tokens: completionTokens }
+                          : message
+                      );
+                      messagesRef.current = newMessages; // Update messagesRef
+                      return newMessages;
+                    });
 
-                    // Check if the 'usage' property exists and is not null
-                    if (parsedData.usage) {
-                        //promptTokens = parsedData.usage.prompt_tokens || 0;
-                        completionTokens = parsedData.usage.completion_tokens || 0;
-                        //totalTokens = parsedData.usage.total_tokens || 0;
-                    }
-    
-                    if (parsedData.choices && parsedData.choices[0] && parsedData.choices[0].delta) {
-                        if (parsedData.choices[0].delta.content) {
-                            const assistantMessage = parsedData.choices[0].delta.content;
-                            partialAssistantMessageRef.current += assistantMessage; // Concatenate response
+                    setIsTyping(false); // Stop typing indicator
+                    return;
+                  }
+
+                  isStreamFinishedRef.current = false; // Mark stream as still going
+              
+                  const parsedData = JSON.parse(event.data.trim());
+              
+                  if (parsedData.usage) {
+                    completionTokens = parsedData.usage.completion_tokens || 0;
+                  }
+              
+                  if (parsedData.choices && parsedData.choices[0] && parsedData.choices[0].delta) {
+                    if (parsedData.choices[0].delta.content) {
+                      const assistantMessage = parsedData.choices[0].delta.content;
+                      partialAssistantMessageRef.current += assistantMessage; // Concatenate the AI's response progressively
+                      //console.log("assistantMessage:", partialAssistantMessageRef.current);
+              
+                      setMessages((prevMessages) => {
+                        const lastMessage = prevMessages[prevMessages.length - 1];
+              
+                        // Check if the last message is from the assistant
+                        if (lastMessage.role === 'assistant') {
+                          // Update the content of the last assistant message
+                          return prevMessages.map((message, index) => {
+                            if (index === prevMessages.length - 1 && message.role === 'assistant') {
+                              return { ...message, content: partialAssistantMessageRef.current };
+                            }
+                            return message;
+                          });
+                        } else {
+                          // If the last message is not from the assistant, add a new assistant message
+                          return [
+                            ...prevMessages,
+                            { role: 'assistant', content: partialAssistantMessageRef.current, tokens: completionTokens }
+                          ];
                         }
+                      });
                     }
+                  }
                 } catch (error) {
-                    console.error('Error parsing event data:', error);
+                  console.error('Error parsing event data:', error);
                 }
-            });
+              });
     
             eventSourceRef.current.addEventListener('error', (error: MessageEvent) => {
                 console.error('Error sending message:', error);
@@ -258,9 +293,11 @@ const Chat: React.FC<ChatProps> = ({token}) => {
                 if (eventSourceRef.current) {
                     eventSourceRef.current.close();
                 }
+                setIsTyping(false); // Stop typing indicator
             });
         } catch (error) {
             console.error('Error initializing event source:', error);
+            setIsTyping(false); // Stop typing indicator
             setErrors((prevErrors) => [...prevErrors, 'An error occurred while initializing event source.']);
         }
     };
@@ -293,16 +330,6 @@ const Chat: React.FC<ChatProps> = ({token}) => {
             setErrors((prevErrors) => [...prevErrors, 'An error occurred while fetching the conversation.']);
         }
     };
-    
-    
-    /*const handleSelectConversation = (conversation: Conversation) => {
-        //setConversationId(conversation.id);
-        setCurrentConversation(conversation);
-        setMessages(conversation.messages);
-        messagesRef.current = conversation.messages;
-        prevMessagesLengthRef.current = conversation.messages.length;
-    };*/
-
     
 
     const handleNewConversation = async () => {
@@ -356,6 +383,12 @@ const Chat: React.FC<ChatProps> = ({token}) => {
             setCurrentConversation(null);
             setConversations([]); // Clear the state so the UI updates accordingly
             setMessages([]);
+            messagesRef.current = [];
+            partialAssistantMessageRef.current = ''; // Clear partial assistant message
+            if (eventSourceRef.current) {
+                eventSourceRef.current.close(); // Close any open EventSource connection
+                eventSourceRef.current = null;
+            }
         } catch (error) {
             if (isError(error)) {
                 setErrors(prevErrors => [...prevErrors, error.message]);
@@ -400,6 +433,10 @@ const Chat: React.FC<ChatProps> = ({token}) => {
         try {
             const conversationToUpdate = await getOrCreateCurrentConversation();
             conversationToUpdate.messages = [messages[messages.length - 1]];
+            //conversationToUpdate.messages = [...conversationToUpdate.messages, latestMessage];
+
+            //console.log(conversationToUpdate);
+
             //console.log(conversationToUpdate);
             //const response = await fetch(`http://localhost/api/conversation/${conversationToUpdate.id}`, {
             const response = await fetch(`${baseAPIUrl}api/conversation/${conversationToUpdate.id}`, {
@@ -423,6 +460,7 @@ const Chat: React.FC<ChatProps> = ({token}) => {
             console.error('Error saving conversation to server:', error);
         }
     }
+    
     
     const fetchConversations = async () => {
         try {
@@ -528,23 +566,40 @@ const Chat: React.FC<ChatProps> = ({token}) => {
     }, []); 
 
     useEffect(() => {
-        // Check if the length of messages has increased - only want to update a conversation if it has been added to
+        //console.log('messages.length: ' + messages.length);
+        //console.log('prevMessagesLengthRef.current: ' + prevMessagesLengthRef.current);
+    
+        // Save user message immediately when messages.length increases
         if (messages.length > prevMessagesLengthRef.current) {
-            saveLatestMessageToConversation(); //save latest message and return updated conversations for Conversations panel
+            const lastMessage = messages[messages.length - 1];
+    
+            if (lastMessage && lastMessage.role === 'user') {
+                // Save immediately if it's a user message
+                saveLatestMessageToConversation();
+            }
         }
+    
+        // Check if the assistant's message content (partialAssistantMessageRef) has changed
+        if (isStreamFinishedRef.current && partialAssistantMessageRef.current) {
+            const lastMessage = messages[messages.length - 1];
+    
+            // If the last message is from the assistant, and the stream is finished, save it
+            if (lastMessage && lastMessage.role === 'assistant' && lastMessage.content === partialAssistantMessageRef.current) {
+                saveLatestMessageToConversation();
+                isStreamFinishedRef.current = false;
+            }
+        }
+    
+        // Update previous message length reference for user messages
         prevMessagesLengthRef.current = messages.length;
     
-        //console.log('Updated messages:', messages);
+        // Scroll to bottom when messages update
         if (responseContainerRef.current) {
             responseContainerRef.current.scrollTop = responseContainerRef.current.scrollHeight;
         }
-    }, [messages]);
+    }, [messages, partialAssistantMessageRef.current]); // Trigger on messages or partial message updates
 
     useEffect(() => {
-        /*const storedConversations = localStorage.getItem('conversations');
-        if (storedConversations) {
-          setConversations(JSON.parse(storedConversations));
-        }*/
         fetchConversations();
       }, []);
 
@@ -596,10 +651,7 @@ const Chat: React.FC<ChatProps> = ({token}) => {
                 )}
             </>
         ) : (
-            <DrawerLayout
-                //minWidth="10em"
-                //onOverlayTrayChange={handleOverlayTrayChange}
-            >
+            <DrawerLayout >
                 <DrawerLayout.Tray
                     id="DrawerLayoutTray"
                     placement="start"
@@ -675,7 +727,7 @@ const Chat: React.FC<ChatProps> = ({token}) => {
                                     <div 
                                         className="message-content"
                                         style={{
-                                            padding: msg.role === 'user' ? '10px' : '10px 15px', // Added padding for AI messages
+                                            padding: msg.role === 'user' ? '0px 10px 10px 10px' : '0px 15px 10px 15px', // Added padding for AI messages
                                             background: msg.role === 'user' ? '#eee' : '#fff',
                                             borderRadius: '5px',
                                             width: '100%',
@@ -690,6 +742,16 @@ const Chat: React.FC<ChatProps> = ({token}) => {
                                     </div>
                                 </div>
                             ))}
+                            {isTyping && (
+                                <div className="chat-message" style={{ display: 'flex', alignItems: 'center'}}>
+                                    <Avatar name="Artificial intelligence" size="small" style={{ marginRight: '10px', marginTop: '10px' }} />
+                                    <div className="message-content" style={{ background: '#fff', borderRadius: '5px', padding: '10px 15px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                                            <PulseLoader size={10} color={"#0374B5"} />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', marginTop: '1rem', width: '100%' }}>
                                 <TextArea
@@ -715,8 +777,6 @@ const Chat: React.FC<ChatProps> = ({token}) => {
                                     withBorder={false}
                                     size="large"
                                     margin="xx-small"
-                                    //aria-haspopup={drawerOverlayed ? "dialog" : "region"}
-                                        //aria-controls="DrawerLayoutTray"
                                     >
                                     <IconCircleArrowUpSolid />
                                 </IconButton>

@@ -28,7 +28,7 @@ function App() {
   return (
     <LtiTokenRetriever handleJwt={updateToken}>
       <LtiApplyTheme url={comInstructureBrandConfigJsonUrl} highContrast={canvasUserPrefersHighContrast}>
-        <View as='div' padding='small'>
+        <View as='div' padding='0'>
           <Chat token={rawJwt}/>
         </View>
       </LtiApplyTheme>
