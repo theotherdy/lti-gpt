@@ -63,8 +63,9 @@ const Chat: React.FC<ChatProps> = ({token}) => {
 
     const isStreamFinishedRef = useRef(false); // Track if the streaming from the assistant is complete
 
-    //const baseAPIUrl = "https://learntech.medsci.ox.ac.uk/lti-gpt-api/";
-    const baseAPIUrl = "http://localhost/";
+    //Swap the below for local vs prpd.
+    const baseAPIUrl = "https://learntech.medsci.ox.ac.uk/lti-gpt-api/";
+    //const baseAPIUrl = "http://localhost/";
         
     //TODO temp token here - will move
     //const token = ""; // Assuming this will be provided or managed elsewhere

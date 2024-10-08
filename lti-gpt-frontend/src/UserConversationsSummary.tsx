@@ -17,6 +17,7 @@ export interface User {
     messages_received_count: number;
     tokens_sent: number;
     tokens_received: number;
+    updated_at: string;
   }
   
   export interface ContextUser {
@@ -89,8 +90,9 @@ export interface User {
         >
           <Table.Head>
             <Table.Row>
-            <Table.ColHeader id="ID">User id</Table.ColHeader>
+              <Table.ColHeader id="ID">User id</Table.ColHeader>
               <Table.ColHeader id="Name">User name</Table.ColHeader>
+              <Table.ColHeader id="UpdatedAt">Date</Table.ColHeader>
               <Table.ColHeader id="MSent">Messages Sent</Table.ColHeader>
               <Table.ColHeader id="MReceived">Messages Received</Table.ColHeader>
               <Table.ColHeader id="TSent">Tokens Sent</Table.ColHeader>
@@ -104,7 +106,8 @@ export interface User {
                 user.conversations.map((convo) => (
                   <Table.Row key={convo.id}>
                     <Table.RowHeader>{user.id}</Table.RowHeader>
-                    <Table.Cell>{user.user.first_name} {user.user.last_name}</Table.Cell>
+                    <Table.Cell>{'Anonymous'}</Table.Cell>
+                    <Table.Cell>{new Date(convo.updated_at).toLocaleString()}</Table.Cell>
                     <Table.Cell>{convo.messages_sent_count}</Table.Cell>
                     <Table.Cell>{convo.messages_received_count}</Table.Cell>
                     <Table.Cell>{convo.tokens_sent}</Table.Cell>

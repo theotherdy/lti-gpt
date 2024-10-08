@@ -18,9 +18,10 @@ class VerifyJWTToken
 {
     //protected $issuer = 'https://lti.canvas.ox.ac.uk';
     //protected $audience = '122010000000000156';
-    protected $jwksUrl = 'https://tools-dev.canvas.ox.ac.uk/.well-known/jwks.json';  //not sure can read this from audinece table as don't know jwt 'safe' - maybe ask Matthew
-
-    //protected $jwksUrl = 'https://lti.canvas.ox.ac.uk/.well-known/jwks.json';
+    
+    //Swap the below for local vs prod.
+    //protected $jwksUrl = 'https://tools-dev.canvas.ox.ac.uk/.well-known/jwks.json';  //not sure can read this from audinece table as don't know jwt 'safe' - maybe ask Matthew
+    protected $jwksUrl = 'https://lti.canvas.ox.ac.uk/.well-known/jwks.json';
 
     protected $audienceService;
     protected $userService;

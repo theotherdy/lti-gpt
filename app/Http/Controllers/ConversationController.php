@@ -176,7 +176,7 @@ class ConversationController extends Controller
                   ->orWhereNull('is_instructor');
         })
         ->with(['conversations' => function ($query) {
-            $query->select('id', 'context_user_id', 'tokens_sent', 'tokens_received')
+            $query->select('id', 'context_user_id', 'tokens_sent', 'tokens_received', 'updated_at')
                 ->withCount(['messages as messages_sent_count' => function ($query) {
                     $query->where('role', 'user');
                 }])
@@ -194,8 +194,8 @@ class ConversationController extends Controller
                 'id' => $contextUser->id,
                 'user' => [
                     'id' => $contextUser->user->id,
-                    'first_name' => $contextUser->user->first_name,
-                    'last_name' => $contextUser->user->last_name
+                    //'first_name' => $contextUser->user->first_name,
+                    //'last_name' => $contextUser->user->last_name
                 ],
                 'conversations' => $contextUser->conversations->map(function ($conversation) {
                     return [
@@ -204,6 +204,7 @@ class ConversationController extends Controller
                         'messages_received_count' => $conversation->messages_received_count ?? 0,
                         'tokens_sent' => $conversation->tokens_sent ?? 0,
                         'tokens_received' => $conversation->tokens_received ?? 0,
+                        'updated_at' => $conversation->updated_at,
                     ];
                 })
             ];
